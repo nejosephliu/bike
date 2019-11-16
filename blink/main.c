@@ -19,7 +19,14 @@
 
 #include "buckler.h"
 
-// LED array
+// LED array on NRF (4 total)
+// #define NRF_LED0 NRF_GPIO_PIN_MAP(0,17)
+// #define NRF_LED1 NRF_GPIO_PIN_MAP(0,18)
+// #define NRF_LED2 NRF_GPIO_PIN_MAP(0,19)
+// #define NRF_LED3 NRF_GPIO_PIN_MAP(0,20)
+// static uint8_t LEDS[4] = {NRF_LED0, NRF_LED1, NRF_LED2, NRF_LED3};
+
+// LED array on Buckler (3 total)
 static uint8_t LEDS[3] = {BUCKLER_LED0, BUCKLER_LED1, BUCKLER_LED2};
 
 int main(void) {
