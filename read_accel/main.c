@@ -16,6 +16,7 @@
 #include "nrf_log_default_backends.h"
 #include "nrf_pwr_mgmt.h"
 #include "nrf_serial.h"
+#include "nrf_twi_mngr.h"
 
 #include "app_timer.h"
 # include "nrf_drv_clock.h"
@@ -35,7 +36,7 @@ static uint8_t LEDS[3] = {BUCKLER_LED0, BUCKLER_LED1, BUCKLER_LED2};
 
 // Timer instantiation and callbacks
 
-APP_TIMER_DEF(ac - cel_timer_id);
+APP_TIMER_DEF(accel_timer_id);
 volatile bool read_accel;
 
 static void lfclk_request(void) { // Enable clock to allow timers to work
@@ -44,15 +45,15 @@ static void lfclk_request(void) { // Enable clock to allow timers to work
     nrf_drv_clock_lfclk_request(NULL);
 }
 
+static void accel_read_callback(void *p_context) {
+    read_accel = true;
+}
+
 static void create_accel_timer(void) {
     ret_code_t error_code = app_timer_create(&accel_timer_id,
                             APP_TIMER_MODE_REPEATED,
                             accel_read_callback);
     APP_ERROR_CHECK(error_code);
-}
-
-static void accel_read_callback(void *p_context) {
-    read_accel = true;
 }
 
 // TWI Manager Instances
@@ -85,23 +86,26 @@ int main(void) {
     // Start the I2C interface
     // initialize i2c master (two wire interface)
     nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
-    i2c_config.scl = BUCKLER_SENSORS_SCL;
+    i2c_config.scl = BUCKLER_SENSORS_SCL; // From Kobuki code
     i2c_config.sda = BUCKLER_SENSORS_SDA;
-    i2c_config.frequency = NRF_TWIM_FREQ_400K;
+    i2c_config.frequency = NRF_TWIM_FREQ_400K; // Changed to 400k to match the datasheet for MPU9250
     error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
     APP_ERROR_CHECK(error_code);
 
 
     // Start the timer
-    error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(1000), NULL);
+    error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(200), NULL);
     APP_ERROR_CHECK(error_code);
+
+    mpu9250_init(&twi_mngr_instance);
 
     // loop forever
     while (1) {
         //printf("Accel is true\n");
         if (read_accel) {
             read_accel = false;
-            
+            mpu9250_measurement_t  acc_red = mpu9250_read_accelerometer();
+            printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
         }
     }
 }
