@@ -56,6 +56,28 @@ static void create_accel_timer(void) {
     APP_ERROR_CHECK(error_code);
 }
 
+void sliding_averager(mpu9250_measurement_t *input_array_pointer, mpu9250_measurement_t *output_array_pointer, int array_size) {
+    float temp_x = 0;
+    float temp_y = 0;
+    float temp_z = 0;
+
+    for (int i = 0; i < array_size; i++) {
+        temp_x += input_array_pointer[i].x_axis;
+        temp_y += input_array_pointer[i].y_axis;
+        temp_z += input_array_pointer[i].z_axis;
+    }
+
+    temp_x /= (float) array_size;
+    temp_y /= (float) array_size;
+    temp_z /= (float) array_size;
+
+    output_array_pointer->x_axis = temp_x;
+    output_array_pointer->y_axis = temp_y;
+    output_array_pointer->z_axis = temp_z;
+
+    return;
+}
+
 // TWI Manager Instances
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
@@ -84,7 +106,7 @@ int main(void) {
     }
 
     // Start the I2C interface
-    // initialize i2c master (two wire interface)
+
     nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
     i2c_config.scl = BUCKLER_SENSORS_SCL; // From Kobuki code
     i2c_config.sda = BUCKLER_SENSORS_SDA;
@@ -92,9 +114,14 @@ int main(void) {
     error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
     APP_ERROR_CHECK(error_code);
 
+    // Allocate arrays for mpu9250 measurements
+    mpu9250_measurement_t acc_array[16] = {0};
+    mpu9250_measurement_t avg_output = {0};
+
+    uint16_t measurement_array_counter = 0;
 
     // Start the timer
-    error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(200), NULL);
+    error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(16), NULL);
     APP_ERROR_CHECK(error_code);
 
     mpu9250_init(&twi_mngr_instance);
@@ -104,8 +131,13 @@ int main(void) {
         //printf("Accel is true\n");
         if (read_accel) {
             read_accel = false;
-            mpu9250_measurement_t  acc_red = mpu9250_read_accelerometer();
-            printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
+            acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
+            measurement_array_counter++;
+            sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
+            //printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
+            printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
+                                                                                          avg_output.y_axis, 
+                                                                                          avg_output.z_axis);
         }
     }
 }
