@@ -19,6 +19,8 @@
 
 #include "buckler.h"
 
+#include "grove_display.h"
+
 // LED array on NRF (4 total)
 // #define NRF_LED0 NRF_GPIO_PIN_MAP(0,17)
 // #define NRF_LED1 NRF_GPIO_PIN_MAP(0,18)
@@ -46,12 +48,7 @@ int main(void) {
     APP_ERROR_CHECK(error_code);
   }
 
-  // loop forever
-  while (1) {
-    for (int i=0; i<3; i++) {
-      nrf_gpio_pin_toggle(LEDS[i]);
-      nrf_delay_ms(500);
-    }
-  }
+  init_tm1637(BUCKLER_GROVE_D0, BUCKLER_GROVE_D1);
+  clearDisplay();
+  displayStr("HEL0");
 }
-
