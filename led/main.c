@@ -64,12 +64,12 @@ int main(void) {
 
   // initialize PWM driver
   nrfx_pwm_config_t const config = {
-   .output_pins = {NRF_LED3,
+   .output_pins = {NRF_LED3, // NRFX_PWM_PIN_INVERTED
 				   NRFX_PWM_PIN_NOT_USED,
 				   NRFX_PWM_PIN_NOT_USED,
 				   NRFX_PWM_PIN_NOT_USED},
    .irq_priority = APP_IRQ_PRIORITY_LOW,
-   .base_clock = NRF_PWM_CLK_16MHz, //
+   .base_clock = NRF_PWM_CLK_16MHz,
    .count_mode = NRF_PWM_MODE_UP,
    .top_value = 20,
    .load_mode = NRF_PWM_LOAD_COMMON,
@@ -78,25 +78,22 @@ int main(void) {
   error_code = nrfx_pwm_init(&m_pwm0, &config, NULL);
   APP_ERROR_CHECK(error_code);
 
-  uint16_t numLEDs = 2;
+  uint16_t numLEDs = 3;
   initLED(numLEDs, m_pwm0);
 
   clear();
   show();
   nrf_delay_ms(1000);
 
-  setPixelRGB(0, 0, 0, 0); // Should be blue
-  setPixelRGB(1, 31, 255, 31); // Should be green
-  setPixelRGB(2, 255, 31, 31); // Should be red
+  setPixelRGB(0, 255, 31, 255); // Should be green
+  setPixelRGB(1, 255, 255, 31); // Should be blue
+  setPixelRGB(2, 31, 255, 255); // Should be red
   show();
-  
 
   // loop forever
   while (1) {
     for (int i=0; i<4; i++) {
       nrf_gpio_pin_toggle(LEDS[i]);
-	  // fill(0, numLEDs, (uint32_t) 0x00FF00FF);
-	  // show();
       nrf_delay_ms(400);
     }
   }

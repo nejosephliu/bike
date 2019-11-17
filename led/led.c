@@ -59,7 +59,7 @@ void fill(uint16_t first, uint16_t num, uint32_t c) {
 }
 
 void clear() {
-  memset(pixels, 0, numLEDs*3);
+  memset(pixels, -1, numLEDs*3);
 }
 
 void show() {
@@ -86,18 +86,6 @@ void show() {
   }
   pattern[pos++] = (uint16_t) 0 | (0x8000);
   pattern[pos++] = (uint16_t) 0 | (0x8000);
-
-  printf("Pattern Start\n");
-  for (uint16_t i=0; i< numLEDs*3*8 + 2; i++) {
-	if (i % 24 == 23) {
-	  printf("%d\n", pattern[i]);
-	} else {
-	  printf("%d ", pattern[i]);
-	}
-  }
-  printf("Pattern End\n");
-  // printf("%d\n", (uint32_t) NRF_PWM_VALUES_LENGTH(pattern));
-  // printf("%d\n", pattern_size / sizeof(uint16_t));
 
   // Creating PWM Sequence
   nrf_pwm_sequence_t seq = {
