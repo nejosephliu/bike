@@ -1,15 +1,17 @@
-# include <stdlib.h>
-# include <string.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
-# include "nrf.h"
-# include "nrfx_pwm.h"
-# include "led.h"
+#include "app_error.h"
+#include "nrf.h"
+#include "nrfx_pwm.h"
+#include "led.h"
 
 static uint16_t numLEDs = 0;  // Number of LEDs to control
 static uint8_t *pixels = 0;   // Pixel array
-nrfx_pwm_t m_pwm0;            // PWM Driver
+static nrfx_pwm_t m_pwm0;            // PWM Driver
 
-int init(uint16_t numLED, nrfx_pwm_t pwm) {
+int initLED(uint16_t numLED, nrfx_pwm_t pwm) {
   // Setting number of LEDs, returning error if already set
   if (numLEDs != 0) {
 	return 1;
@@ -73,27 +75,40 @@ void show() {
 
   // Filling PWM Sequence Values, zero-padding at the end
   uint16_t pos = 0;
-  for (uint16_t i=0; i < numLEDs; i++) {
+  for (uint16_t i=0; i<numLEDs*3; i++) {
 	uint8_t pixel = pixels[i];
 
-	for (uint8_t mask=0x80; mask > 0; mask >>= 1) {
+	for (uint8_t mask=0x80; mask>0; mask >>= 1) {
 	  // For high bits, pwm duty is 13.  For low bits, it is 6.
-	  pattern[pos] = (pixel & mask) ? 13 : 6;
+	  pattern[pos] = (pixel & mask) ? (uint16_t) 13 : (uint16_t) 6;
+	  pos++;
 	}
-	pos++;
   }
-  pattern[pos++] = 0 | (0x8000);
-  pattern[pos++] = 0 | (0x8000);
+  pattern[pos++] = (uint16_t) 0 | (0x8000);
+  pattern[pos++] = (uint16_t) 0 | (0x8000);
+
+  printf("Pattern Start\n");
+  for (uint16_t i=0; i< numLEDs*3*8 + 2; i++) {
+	if (i % 24 == 23) {
+	  printf("%d\n", pattern[i]);
+	} else {
+	  printf("%d ", pattern[i]);
+	}
+  }
+  printf("Pattern End\n");
+  // printf("%d\n", (uint32_t) NRF_PWM_VALUES_LENGTH(pattern));
+  // printf("%d\n", pattern_size / sizeof(uint16_t));
 
   // Creating PWM Sequence
-  nrf_pwm_sequence_t const seq = {
+  nrf_pwm_sequence_t seq = {
    .values.p_common = pattern,
-   .length = NRF_PWM_VALUES_LENGTH(pattern),
+   .length = numLEDs*3*8 + 2,
    .repeats = 0,
-   .end_delay = 40
+   .end_delay = 0
   };
   // Calling the PWM (Finally)
-  nrfx_pwm_simple_playback(&m_pwm0, &seq, 1, 0);
+  APP_ERROR_CHECK(nrfx_pwm_simple_playback(&m_pwm0, &seq, 1, 0));
+  printf("Called simple playback\n");
 
   free(pattern);
 }
