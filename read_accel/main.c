@@ -1,7 +1,3 @@
-// Blink app
-//
-// Blinks the LEDs on Buckler
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -84,10 +80,9 @@ float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_
     // TODO: Add an enum and switch/case statements for easy access selection
     // For now just hardcoded to z-axis
     float axis_accel_value = smoothed_acceleration->x_axis;
-    
-    if (axis_accel_value < .2)
-    {
-      return previous_velocity;
+
+    if ((axis_accel_value < .05) && (axis_accel_value > -.05)) {
+        return previous_velocity;
     }
 
     previous_velocity += (axis_accel_value * ((float) delta_t_msec / 1000.0));
@@ -98,7 +93,7 @@ float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
 int main(void) {
-    ret_code_t error_code = NRF_SUCCESS; // Don't need to redeclar error_code again
+    ret_code_t error_code = NRF_SUCCESS; // Don't need to redeclare error_code again
 
     // Init timers:
     lfclk_request(); // start clock
@@ -160,7 +155,7 @@ int main(void) {
     float current_velocity = 0;
 
     // Start the timer
-    int delta_t_msec = 16;
+    int delta_t_msec = 2;
     error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(delta_t_msec), NULL);
     APP_ERROR_CHECK(error_code);
 
@@ -182,12 +177,12 @@ int main(void) {
             //        avg_output.y_axis,
             //        avg_output.z_axis);
             current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
-
-            if((print_counter % 20) == 0) {
-                printf("Current Velocity: %f\n", current_velocity);
-            }
-            print_counter++;
         }
+
+        if((print_counter % 20) == 0) {
+            printf("Current Velocity: %f\n", current_velocity);
+        }
+        print_counter++;
     }
 }
 
