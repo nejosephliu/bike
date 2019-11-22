@@ -1,6 +1,11 @@
-// Blink app
+// LED strip app
 //
-// Blinks the LEDs on Buckler
+// Controls an Adafruit Neopixel LED Strip using a PWM driver
+//
+// Setup:
+// Attach 5V power supply to LED strip through a 100 Ohm resistor
+// Attach data of LED strip to GPIO Pin 16
+// Attach ground to LED strip and connect it to NRF
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -14,25 +19,12 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
-#include "nrf_pwr_mgmt.h"
-#include "nrf_serial.h"
 #include "nrfx_pwm.h"
 
-#include "buckler.h"
 #include "led.h"
 
-// LED array on NRF (4 total)
-#define NRF_LED0 NRF_GPIO_PIN_MAP(0,17)
-#define NRF_LED1 NRF_GPIO_PIN_MAP(0,18)
-#define NRF_LED2 NRF_GPIO_PIN_MAP(0,19)
-#define NRF_LED3 NRF_GPIO_PIN_MAP(0,20)
-static uint8_t LEDS[4] = {NRF_LED0, NRF_LED1, NRF_LED2};
-
-#define LED_PWM NRF_GPIO_PIN_MAP(0, 16)
+#define LED_PWM NRF_GPIO_PIN_MAP(0, 16) // GPIO pin to control LED signal
 static nrfx_pwm_t m_pwm0 = NRFX_PWM_INSTANCE(0);
-
-// LED array on Buckler (3 total)
-// static uint8_t LEDS[3] = {BUCKLER_LED0, BUCKLER_LED1, BUCKLER_LED2};
 
 int main(void) {
   ret_code_t error_code = NRF_SUCCESS;
@@ -49,22 +41,15 @@ int main(void) {
   }
   APP_ERROR_CHECK(error_code);
 
-  // configure leds
+  // configure GPIO pin
   // manually-controlled (simple) output, initially set
   nrfx_gpiote_out_config_t out_config = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(true);
-  for (int i=0; i<3; i++) {
-    error_code = nrfx_gpiote_out_init(LEDS[i], &out_config);
-    APP_ERROR_CHECK(error_code);
-  }
-  
-  error_code = nrfx_gpiote_out_init(NRF_LED3, &out_config);
-  APP_ERROR_CHECK(error_code);
   error_code = nrfx_gpiote_out_init(LED_PWM, &out_config);
   APP_ERROR_CHECK(error_code);
 
   // initialize PWM driver
   nrfx_pwm_config_t const config = {
-   .output_pins = {NRF_LED3, // NRFX_PWM_PIN_INVERTED
+   .output_pins = {LED_PWM, // NRFX_PWM_PIN_INVERTED makes no difference
 				   NRFX_PWM_PIN_NOT_USED,
 				   NRFX_PWM_PIN_NOT_USED,
 				   NRFX_PWM_PIN_NOT_USED},
@@ -79,26 +64,31 @@ int main(void) {
   APP_ERROR_CHECK(error_code);
 
   uint16_t numLEDs = 8;
-  initLED(numLEDs, m_pwm0);
-  nrf_gpio_pin_clear(NRF_LED3);
-  nrf_delay_ms(20);
+  led_init(numLEDs, m_pwm0); // assume success
 
-  clear();
-  show();
+  led_clear();
+  led_show();
   nrf_delay_ms(1000);
-
-  for (int i=0; i<numLEDs; i++) {
-	setPixelRGB(i, 250, 255, 255);
-  }
-  setPixelRGB(5, 255, 255, 255);
-  show();
 
   // loop forever
   while (1) {
-    for (int i=0; i<3; i++) {
-      nrf_gpio_pin_toggle(LEDS[i]);
-      nrf_delay_ms(400);
-    }
+	for (int i=0; i<numLEDs; i++) {
+	  led_set_pixel_RGB(i, 127, 255, 255); // Red
+	}
+	led_show();
+	nrf_delay_ms(1000);
+
+	for (int i=0; i<numLEDs; i++) {
+	  led_set_pixel_color(i, (uint32_t) 0x00FFF0FF); // Green
+	}
+	led_show();
+	nrf_delay_ms(1000);
+
+	for (int i=0; i<numLEDs; i++) {
+	  led_fill(0, numLEDs, (uint32_t) 0x00FFFF7F); // Blue
+	}
+	led_show();
+	nrf_delay_ms(1000);
   }
 }
 
