@@ -71,28 +71,31 @@ int main(void) {
    .irq_priority = APP_IRQ_PRIORITY_LOW,
    .base_clock = NRF_PWM_CLK_16MHz,
    .count_mode = NRF_PWM_MODE_UP,
-   .top_value = 20,
+   .top_value = 21,
    .load_mode = NRF_PWM_LOAD_COMMON,
    .step_mode = NRF_PWM_STEP_AUTO
   };
   error_code = nrfx_pwm_init(&m_pwm0, &config, NULL);
   APP_ERROR_CHECK(error_code);
 
-  uint16_t numLEDs = 3;
+  uint16_t numLEDs = 8;
   initLED(numLEDs, m_pwm0);
+  nrf_gpio_pin_clear(NRF_LED3);
+  nrf_delay_ms(20);
 
   clear();
   show();
   nrf_delay_ms(1000);
 
-  setPixelRGB(0, 255, 31, 255); // Should be green
-  setPixelRGB(1, 255, 255, 31); // Should be blue
-  setPixelRGB(2, 31, 255, 255); // Should be red
+  for (int i=0; i<numLEDs; i++) {
+	setPixelRGB(i, 250, 255, 255);
+  }
+  setPixelRGB(5, 255, 255, 255);
   show();
 
   // loop forever
   while (1) {
-    for (int i=0; i<4; i++) {
+    for (int i=0; i<3; i++) {
       nrf_gpio_pin_toggle(LEDS[i]);
       nrf_delay_ms(400);
     }

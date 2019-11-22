@@ -80,7 +80,7 @@ void show() {
 
 	for (uint8_t mask=0x80; mask>0; mask >>= 1) {
 	  // For high bits, pwm duty is 13.  For low bits, it is 6.
-	  pattern[pos] = (pixel & mask) ? (uint16_t) 13 : (uint16_t) 6;
+	  pattern[pos] = (pixel & mask) ? (uint16_t) 13 : (uint16_t) 7;
 	  pos++;
 	}
   }
