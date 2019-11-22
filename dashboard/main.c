@@ -12,7 +12,6 @@
 #include "nrf_log_default_backends.h"
 #include "nrf_pwr_mgmt.h"
 
-
 #include "nrf_drv_clock.h"
 #include "app_timer.h"
 
@@ -34,8 +33,8 @@ int main(void) {
   }
   APP_ERROR_CHECK(error_code);
 
-  init_tm1637(0);
-  init_tm1637(1);
+  init_tm1637_display(0);
+  init_tm1637_display(1);
 
   clearDisplay(0);
   clearDisplay(1);
@@ -59,20 +58,6 @@ int main(void) {
   while (1) {
     calculate_accelerometer_values();
 
-    /*mpu9250_measurement_t measurement = mpu9250_read_gyro_integration();
-    float x_angle = measurement.x_axis;
-    x_angle += x_cancel;
-    x_cancel += x_cancel_rate;
-    if (x_angle < -350) {
-        mpu9250_stop_gyro_integration();
-        mpu9250_start_gyro_integration();
-    }
-    printf("X Angle: %f\n", x_angle);
-    float y_angle = measurement.y_axis;
-    printf("Y Angle: %f\n", y_angle);
-    float z_angle = measurement.z_axis;
-    printf("Z Angle: %f\n", z_angle);*/
-
     float x_val = get_x_g();
     printf("X value: %f\n", x_val);
     float y_val = get_y_g();
@@ -94,5 +79,20 @@ int main(void) {
     }
     
     nrf_delay_ms(50);
+
+
+    /*mpu9250_measurement_t measurement = mpu9250_read_gyro_integration();
+    float x_angle = measurement.x_axis;
+    x_angle += x_cancel;
+    x_cancel += x_cancel_rate;
+    if (x_angle < -350) {
+        mpu9250_stop_gyro_integration();
+        mpu9250_start_gyro_integration();
+    }
+    printf("X Angle: %f\n", x_angle);
+    float y_angle = measurement.y_axis;
+    printf("Y Angle: %f\n", y_angle);
+    float z_angle = measurement.z_axis;
+    printf("Z Angle: %f\n", z_angle);*/
   }
 }

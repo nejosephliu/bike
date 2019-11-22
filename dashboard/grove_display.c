@@ -1,7 +1,3 @@
-// Blink app
-//
-// Blinks the LEDs on Buckler
-
 #include "grove_display.h"
 
 const int DIGITS = 4;
@@ -53,7 +49,7 @@ uint8_t char2segments(char c) {
 }
 
 
-void init_tm1637(int port_number) {
+void init_tm1637_display(int port_number) {
     printf("Initializing Grove 4 Digit Display.\n");
 
     ret_code_t error_code = NRF_SUCCESS;
@@ -108,11 +104,11 @@ int writeByte(int8_t wr_data, int port_number) {
 
   bitDelay();
   uint32_t data_pin;
-    if (port_number == 0) {
-        data_pin = data_pin_0;
-    } else {
-        data_pin = data_pin_1;
-    }
+  if (port_number == 0) {
+      data_pin = data_pin_0;
+  } else {
+      data_pin = data_pin_1;
+  }
   uint8_t ack = nrf_gpio_pin_read(data_pin);
 
   if (ack == 0)

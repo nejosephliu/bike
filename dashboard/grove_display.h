@@ -20,7 +20,7 @@
 #define POINT_OFF 0
 
 bool _PointFlag;
-void init_tm1637(int port_number);
+void init_tm1637_display(int port_number);
 int writeByte(int8_t wr_data, int port_number);
 void start(int port_number);
 void stop(int port_number);
