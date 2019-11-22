@@ -8,7 +8,7 @@
 
 static uint16_t numLEDs = 0;  // Number of LEDs to control
 static uint8_t *pixels = 0;   // Pixel array
-static nrfx_pwm_t m_pwm0;            // PWM Driver
+static nrfx_pwm_t m_pwm0;     // PWM Driver
 
 int led_init(uint16_t numLED, nrfx_pwm_t pwm) {
   // Setting number of LEDs, returning error if already set
@@ -50,9 +50,7 @@ void led_set_pixel_color(uint16_t n, uint32_t c) {
 
 // Fills LEDs from first (inclusive) to num (exclusive) with color
 void led_fill(uint16_t first, uint16_t num, uint32_t c) {
-  if (first + num > numLEDs) {
-	return;
-  }
+  if (first + num > numLEDs) return;
   for (uint16_t i = first; i < first + num; i++) {
 	led_set_pixel_color(i, c);
   }
@@ -79,7 +77,7 @@ void led_show() {
 	uint8_t pixel = pixels[i];
 	for (uint8_t mask=0x80; mask>0; mask >>= 1) {
 	  // For high bits, pwm duty is cycle is 13 out of 20.
-	  // For low bits, it is 7 (note: 6 does not work).
+	  // For low bits, it is 7 (note: 6 fails badly).
 	  pattern[pos] = (pixel & mask) ? (uint16_t) 13 : (uint16_t) 7;
 	  pos++;
 	}
