@@ -6,8 +6,13 @@
 
 const int DIGITS = 4;
 
-uint32_t clock_pin;
-uint32_t data_pin;
+uint32_t clock_pin_0 = BUCKLER_GROVE_A0;
+uint32_t data_pin_0 = BUCKLER_GROVE_A1;
+
+uint32_t clock_pin_1 = BUCKLER_GROVE_D0;
+uint32_t data_pin_1 = BUCKLER_GROVE_D1;
+
+uint8_t brightness = 7;
 
 static int8_t tube_tab[] =  {0x3f, 0x06, 0x5b, 0x4f,
                             0x66, 0x6d, 0x7d, 0x07,
@@ -48,9 +53,8 @@ uint8_t char2segments(char c) {
 }
 
 
-void init_tm1637(uint32_t clock_pin_set, uint32_t data_pin_set) {
-    clock_pin = clock_pin_set;
-    data_pin = data_pin_set;
+void init_tm1637(int port_number) {
+    printf("Initializing Grove 4 Digit Display.\n");
 
     ret_code_t error_code = NRF_SUCCESS;
 
@@ -64,83 +68,99 @@ void init_tm1637(uint32_t clock_pin_set, uint32_t data_pin_set) {
     // manually-controlled (simple) output, initially set
     nrfx_gpiote_out_config_t out_config = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(true);
     
+    uint32_t data_pin;
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+        clock_pin = clock_pin_0;
+    } else {
+        data_pin = data_pin_1;
+        clock_pin = clock_pin_1;
+    }
+    
     error_code = nrfx_gpiote_out_init(clock_pin, &out_config);
     APP_ERROR_CHECK(error_code);
     error_code = nrfx_gpiote_out_init(data_pin, &out_config);
     APP_ERROR_CHECK(error_code);
 
-    clockPinOutput();
-    dataPinOutput();
+    clockPinOutput(port_number);
+    dataPinOutput(port_number);
 }
 
-int writeByte(int8_t wr_data) {
+int writeByte(int8_t wr_data, int port_number) {
   for (uint8_t i = 0; i < 8; i++) // Sent 8bit data
   {
-    clockPinLow();
+    clockPinLow(port_number);
 
     if (wr_data & 0x01)
-      dataPinHigh(); // LSB first
+      dataPinHigh(port_number); // LSB first
     else
-      dataPinLow();
+      dataPinLow(port_number);
 
     wr_data >>= 1;
-    clockPinHigh();
+    clockPinHigh(port_number);
   }
 
-  clockPinLow(); // Wait for the ACK
-  dataPinHigh();
-  clockPinHigh();
-  dataPinInput();
+  clockPinLow(port_number); // Wait for the ACK
+  dataPinHigh(port_number);
+  clockPinHigh(port_number);
+  dataPinInput(port_number);
 
   bitDelay();
+  uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
   uint8_t ack = nrf_gpio_pin_read(data_pin);
 
   if (ack == 0)
   {
-    dataPinOutput();
-    dataPinLow();
+    dataPinOutput(port_number);
+    dataPinLow(port_number);
   }
 
   bitDelay();
-  dataPinOutput();
+  dataPinOutput(port_number);
   bitDelay();
 
   return ack;
 }
 
-void start() {
-  clockPinHigh();
-  dataPinHigh();
-  dataPinLow();
-  clockPinLow();
+void start(int port_number) {
+  clockPinHigh(port_number);
+  dataPinHigh(port_number);
+  dataPinLow(port_number);
+  clockPinLow(port_number);
 }
 
-void stop() {
-  clockPinLow();
-  dataPinLow();
-  clockPinHigh();
-  dataPinHigh();
+void stop(int port_number) {
+  clockPinLow(port_number);
+  dataPinLow(port_number);
+  clockPinHigh(port_number);
+  dataPinHigh(port_number);
 }
 
-void display(uint8_t bit_addr, int8_t disp_data) {
+void display(uint8_t bit_addr, int8_t disp_data, int port_number) {
   int8_t seg_data;
 
   seg_data = coding(disp_data);
-  start();               // Start signal sent to TM1637 from MCU
+  start(port_number);               // Start signal sent to TM1637 from MCU
   uint8_t ADDR_FIXED = 0x44;
-  writeByte(ADDR_FIXED); // Command1: Set data
-  stop();
-  start();
-  writeByte(bit_addr | 0xc0); // Command2: Set data (fixed address)
-  writeByte(seg_data);        // Transfer display data 8 bits
-  stop();
-  start();
-  uint8_t cmd_disp_ctrl = 0x88 + 5;
-  writeByte(cmd_disp_ctrl); // Control display
-  stop();
+  writeByte(ADDR_FIXED, port_number); // Command1: Set data
+  stop(port_number);
+  start(port_number);
+  writeByte(bit_addr | 0xc0, port_number); // Command2: Set data (fixed address)
+  writeByte(seg_data, port_number);        // Transfer display data 8 bits
+  stop(port_number);
+  start(port_number);
+  uint8_t cmd_disp_ctrl = 0x88 + brightness;
+  writeByte(cmd_disp_ctrl, port_number); // Control display
+  stop(port_number);
 }
 
-void displayNum(float num, int decimal, bool show_minus) {
+void displayNum(float num, int decimal, bool show_minus, int port_number) {
   // Displays number with decimal places (no decimal point implementation)
   // Colon is used instead of decimal point if decimal == 2
   // Be aware of int size limitations (up to +-2^15 = +-32767)
@@ -152,15 +172,15 @@ void displayNum(float num, int decimal, bool show_minus) {
     int j = DIGITS - i - 1;
 
     if (number != 0)
-      display(j, number % 10);
+      display(j, number % 10, port_number);
     else
-      display(j, 0x7f); // display nothing
+      display(j, 0x7f, port_number); // display nothing
 
     number /= 10;
   }
 
   if (show_minus && num < 0)
-    display(0, '-'); // Display '-'
+    display(0, '-', port_number); // Display '-'
 
   if (decimal == 2)
     point(true);
@@ -168,30 +188,30 @@ void displayNum(float num, int decimal, bool show_minus) {
     point(false);
 }
 
-void displayStr(const char str[])
+void displayStr(const char str[], int port_number)
 {
   for (int i = 0; i < (int)(strlen(str)); i++) {
     if (i + 1 > DIGITS) {
       nrf_delay_ms(500); //loop delay
       for (int d = 0; d < DIGITS; d++) {
-        display(d, str[d + i + 1 - DIGITS]); //loop display
+        display(d, str[d + i + 1 - DIGITS], port_number); //loop display
       }
     } else {
-      display(i, str[i]);
+      display(i, str[i], port_number);
     }
   }
 
   // display nothing
   for (int i = strlen(str); i < DIGITS; i++) {
-    display(i, 0x7f);
+    display(i, 0x7f, port_number);
   }
 }
 
-void clearDisplay() {
-  display(0x00, 0x7f);
-  display(0x01, 0x7f);
-  display(0x02, 0x7f);
-  display(0x03, 0x7f);
+void clearDisplay(int port_number) {
+  display(0x00, 0x7f, port_number);
+  display(0x01, 0x7f, port_number);
+  display(0x02, 0x7f, port_number);
+  display(0x03, 0x7f, port_number);
 }
 
 void point(bool PointFlag) {
@@ -221,34 +241,86 @@ void bitDelay() {
   nrf_delay_us(50);
 }
 
-void clockPinLow() {
-  nrf_gpio_pin_clear(clock_pin);
+void clockPinLow(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_clear(clock_pin);
 }
 
-void clockPinHigh() {
-  nrf_gpio_pin_set(clock_pin);
+void clockPinHigh(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_set(clock_pin);
 }
 
-void dataPinLow() {
-  nrf_gpio_pin_clear(data_pin);
+void dataPinLow(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_clear(data_pin);
 }
 
-void dataPinHigh() {
-  nrf_gpio_pin_set(data_pin);
+void dataPinHigh(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_set(data_pin);
 }
 
-void clockPinOutput() {
-  nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_OUTPUT);
+void clockPinOutput(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_OUTPUT);
 }
 
-void clockPinInput() {
-  nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_INPUT);
+void clockPinInput(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_INPUT);
 }
 
-void dataPinOutput() {
-  nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_OUTPUT);
+void dataPinOutput(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_OUTPUT);
 }
 
-void dataPinInput() {
-  nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_INPUT);
+void dataPinInput(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_INPUT);
+}
+
+void setBrightness(uint8_t new_brightness) {
+    brightness = new_brightness;
 }
