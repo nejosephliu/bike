@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
+
 #include "app_error.h"
 #include "nrf.h"
 #include "nrf_delay.h"
@@ -29,3 +30,6 @@ void calculate_values();
 float get_x_degree();
 float get_y_degree();
 float get_z_degree();
+float get_x_g();
+float get_y_g();
+float get_z_g();

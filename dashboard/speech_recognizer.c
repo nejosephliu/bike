@@ -1,23 +1,4 @@
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-
-#include "app_error.h"
-#include "nrf.h"
-#include "nrf_delay.h"
-#include "nrfx_gpiote.h"
-#include "nrf_gpio.h"
-#include "nrf_log.h"
-#include "nrf_log_ctrl.h"
-#include "nrf_log_default_backends.h"
-#include "nrf_pwr_mgmt.h"
-#include "nrf_serial.h"
-#include "nrf_drv_clock.h"
-
-#include "buckler.h"
-
-#define OP_QUEUES_SIZE          3
-#define APP_TIMER_PRESCALER     NRF_SERIAL_APP_TIMER_PRESCALER
+#include "speech_recognizer.h"
 
 static void sleep_handler(void)
 {
@@ -48,8 +29,8 @@ NRF_SERIAL_CONFIG_DEF(serial_config5, NRF_SERIAL_MODE_DMA,
 
 NRF_SERIAL_UART_DEF(serial_uart5, 0);
 
-int main(void) {
-  ret_code_t ret;
+void speech_recognizer_init() {
+    ret_code_t ret;
 
     ret = nrf_drv_clock_init();
     APP_ERROR_CHECK(ret);
@@ -60,23 +41,4 @@ int main(void) {
 
     ret = nrf_serial_init(&serial_uart5, &m_uart0_drv_config5, &serial_config5);
     APP_ERROR_CHECK(ret);
-
-    while (true)
-    {
-        char c;
-        ret = nrf_serial_read(&serial_uart5, &c, sizeof(c), NULL, 5000);
-        if (ret != NRF_SUCCESS)
-        {
-          if (ret == NRF_ERROR_INVALID_STATE) {
-            printf("Fail: NRF_ERROR_INVALID_STATE\n");
-          } else {
-            printf("Fail: %lu\n", ret);
-          }
-        } else {
-          printf("Success! %lu\n", ret);
-          printf("char: %x\n", c);
-          nrf_delay_ms(500);
-        }
-      nrf_delay_ms(50);
-    }
 }
