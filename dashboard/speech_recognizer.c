@@ -42,3 +42,4 @@ void speech_recognizer_init() {
     ret = nrf_serial_init(&serial_uart5, &m_uart0_drv_config5, &serial_config5);
     APP_ERROR_CHECK(ret);
 }
+

@@ -54,7 +54,7 @@ void init_accelerometer() {
     APP_ERROR_CHECK(error_code);
 }
 
-void calculate_values() {
+void calculate_accelerometer_values() {
     nrf_saadc_value_t x_val = sample_value(X_CHANNEL);
     nrf_saadc_value_t y_val = sample_value(Y_CHANNEL);
     nrf_saadc_value_t z_val = sample_value(Z_CHANNEL);

@@ -26,7 +26,7 @@ void saadc_callback (nrfx_saadc_evt_t const * p_event);
 nrf_saadc_value_t sample_value (uint8_t channel);
 
 void init_accelerometer();
-void calculate_values();
+void calculate_accelerometer_values();
 float get_x_degree();
 float get_y_degree();
 float get_z_degree();

@@ -11,12 +11,17 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #include "nrf_pwr_mgmt.h"
-#include "nrf_serial.h"
+
+
 #include "nrf_drv_clock.h"
+#include "app_timer.h"
 
 #include "buckler.h"
 
-#define OP_QUEUES_SIZE          3
-#define APP_TIMER_PRESCALER     NRF_SERIAL_APP_TIMER_PRESCALER
+#include "speech_recognizer.h"
+#include "grove_display.h"
+#include "buckler_accelerometer.h"
 
-void speech_recognizer_init();
+#include "mpu9250.h"
+
+void init_gyro();
