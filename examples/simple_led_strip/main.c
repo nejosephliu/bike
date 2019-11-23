@@ -21,7 +21,7 @@
 #include "nrf_log_default_backends.h"
 #include "nrfx_pwm.h"
 
-#include "led.h"
+#include "led_strip.h"
 
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 16) // GPIO pin to control LED signal
 static nrfx_pwm_t m_pwm0 = NRFX_PWM_INSTANCE(0);
@@ -76,19 +76,26 @@ int main(void) {
 	  led_set_pixel_RGB(i, 127, 255, 255); // Red
 	}
 	led_show();
-	nrf_delay_ms(1000);
+	nrf_delay_ms(999);
+	led_clear();
+	led_show();
+	nrf_delay_ms(1);
 
 	for (int i=0; i<numLEDs; i++) {
 	  led_set_pixel_color(i, (uint32_t) 0x00FFF0FF); // Green
 	}
 	led_show();
-	nrf_delay_ms(1000);
-
-	for (int i=0; i<numLEDs; i++) {
-	  led_fill(0, numLEDs, (uint32_t) 0x00FFFF7F); // Blue
-	}
+	nrf_delay_ms(999);
+	led_clear();
 	led_show();
-	nrf_delay_ms(1000);
+	nrf_delay_ms(1);
+
+    led_fill(0, numLEDs, (uint32_t) 0x00FFFF7F); // Blue
+	led_show();
+	nrf_delay_ms(999);
+	led_clear();
+	led_show();
+	nrf_delay_ms(1);
   }
 }
 
