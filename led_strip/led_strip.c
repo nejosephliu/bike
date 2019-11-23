@@ -4,7 +4,7 @@
 #include "app_error.h"
 #include "nrf.h"
 #include "nrfx_pwm.h"
-#include "led.h"
+#include "led_strip.h"
 
 static uint16_t numLEDs = 0;  // Number of LEDs to control
 static uint8_t *pixels = 0;   // Pixel array

@@ -21,7 +21,7 @@
 #include "nrf_log_default_backends.h"
 #include "nrfx_pwm.h"
 
-#include "led.h"
+#include "led_strip.h"
 
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 16) // GPIO pin to control LED signal
 static nrfx_pwm_t m_pwm0 = NRFX_PWM_INSTANCE(0);
