@@ -5,7 +5,7 @@
 #include "nrf_delay.h"
 
 #include "app_timer.h"
-#include "nrf_drv_clock.h"
+#include "nrfx_clock.h"
 
 #include "led_strip.h"
 #include "led_pattern.h"
