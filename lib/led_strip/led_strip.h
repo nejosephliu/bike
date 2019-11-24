@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nrf.h"
+#include "nrfx_pwm.h"
 
 // Initializes the number of LEDs.  Only call this once
 int  led_init(uint16_t numLED, nrfx_pwm_t pwm);
