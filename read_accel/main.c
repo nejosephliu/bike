@@ -7,9 +7,6 @@
 #include "nrf_delay.h"
 #include "nrfx_gpiote.h"
 #include "nrf_gpio.h"
-
-#include "nrf_drv_gpiote.h"
-
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
@@ -114,17 +111,14 @@ int main(void) {
     }
     APP_ERROR_CHECK(error_code);
 
-    // Configure interrupt on pin change
-    // error_code = nrf_drv_gpiote_init(); // Maybe redundant??
-    // APP_ERROR_CHECK(error_code);
     printf("Init GPIO DRV\n");
 
-    nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
+    nrf_drv_gpiote_in_config_t in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
     in_config.pull = NRF_GPIO_PIN_PULLUP; // Pullup disabled by default
 
-    error_code = nrf_drv_gpiote_in_init(BUCKLER_BUTTON0, &in_config, test_printer);
+    error_code = nrfx_gpiote_in_init(BUCKLER_BUTTON0, &in_config, test_printer);
     APP_ERROR_CHECK(error_code);
-    nrf_drv_gpiote_in_event_enable(BUCKLER_BUTTON0, true);
+    nrfx_gpiote_in_event_enable(BUCKLER_BUTTON0, true);
 
 
     // configure leds
