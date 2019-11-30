@@ -200,15 +200,15 @@ int main(void) {
         uint32_t time_diff = app_timer_cnt_diff_compute(current_time, previous_time);
         // Convert ticks to milliseconds
         // https://devzone.nordicsemi.com/f/nordic-q-a/10414/milliseconds-since-startup
-        // ticks * ( (APP_TIMER_PRESCALER + 1 ) * 1000 ) / APP_TIMER_CLOCK_FREQ;        
-        float time_diff_msec = () / 
-        printf("TD: %li\n", time_diff);
+        // ticks * ( (APP_TIMER_PRESCALER|RTC Clock Prescalar + 1 ) * 1000 ) / APP_TIMER_CLOCK_FREQ;        
+
+        // NOTE: I'm assuing an RTC prescalar of 32768Hz & clock freq of 32768Hz, as well!!!
+        float time_diff_msec = ((float)time_diff * (((float)0 + 1.0) * 1000.0)) / (float)32768;
 
         if (read_accel) {
             read_accel = false;
         }
 
         previous_time = current_time;
-        nrf_delay_ms(500);
     }
 }
