@@ -7,6 +7,9 @@
 #include "nrf_delay.h"
 #include "nrfx_gpiote.h"
 #include "nrf_gpio.h"
+
+#include "nrf_drv_gpiote.h"
+
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
@@ -89,6 +92,11 @@ float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_
     return previous_velocity;
 }
 
+void test_printer(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+    printf("Hit the Interrupt on a Button Press\n");
+    printf("GPIO Pin Num: %li\n", pin);
+}
+
 // TWI Manager Instances
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
@@ -105,6 +113,19 @@ int main(void) {
         error_code = nrfx_gpiote_init();
     }
     APP_ERROR_CHECK(error_code);
+
+    // Configure interrupt on pin change
+    // error_code = nrf_drv_gpiote_init(); // Maybe redundant??
+    // APP_ERROR_CHECK(error_code);
+    printf("Init GPIO DRV\n");
+
+    nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
+    in_config.pull = NRF_GPIO_PIN_PULLUP; // Pullup disabled by default
+
+    error_code = nrf_drv_gpiote_in_init(BUCKLER_BUTTON0, &in_config, test_printer);
+    APP_ERROR_CHECK(error_code);
+    nrf_drv_gpiote_in_event_enable(BUCKLER_BUTTON0, true);
+
 
     // configure leds
     // manually-controlled (simple) output, initially set
@@ -167,21 +188,21 @@ int main(void) {
     // loop forever
     while (1) {
         //printf("Accel is true\n");
-        if (read_accel) {
-            read_accel = false;
-            // acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
-            // measurement_array_counter++;
-            // sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
-            // // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
-            // // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
-            // //        avg_output.y_axis,
-            // //        avg_output.z_axis);
-            // current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
-            mpu9250_measurement_t measurement = mpu9250_read_gyro();
-            printf("Gyro X: %f\n", measurement.x_axis);
-            printf("Gyro Y: %f\n", measurement.y_axis);
-            printf("Gyro Z: %f\n", measurement.z_axis);
-        }
+        // if (read_accel) {
+        //     read_accel = false;
+        //     // acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
+        //     // measurement_array_counter++;
+        //     // sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
+        //     // // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
+        //     // // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
+        //     // //        avg_output.y_axis,
+        //     // //        avg_output.z_axis);
+        //     // current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
+        //     mpu9250_measurement_t measurement = mpu9250_read_gyro();
+        //     printf("Gyro X: %f\n", measurement.x_axis);
+        //     printf("Gyro Y: %f\n", measurement.y_axis);
+        //     printf("Gyro Z: %f\n", measurement.z_axis);
+        // }
 
         // if((print_counter % 20) == 0) {
         //     printf("Current Velocity: %f\n", current_velocity);
@@ -189,5 +210,6 @@ int main(void) {
         //     print_counter++;
         // }
 
+        //Do nothing to test the button interrupt
     }
 }
