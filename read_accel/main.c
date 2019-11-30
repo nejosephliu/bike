@@ -53,6 +53,17 @@ static void create_accel_timer(void) {
     APP_ERROR_CHECK(error_code);
 }
 
+APP_TIMER_DEF(main_loop_timer);
+
+static void main_loop_timer_callback(void *p_context) {}  // Do nothing
+
+static void create_main_loop_timer(void) {
+    ret_code_t error_code = app_timer_create(&main_loop_timer,
+                            APP_TIMER_MODE_REPEATED,
+                            main_loop_timer_callback);
+    APP_ERROR_CHECK(error_code);
+}
+
 void sliding_averager(mpu9250_measurement_t *input_array_pointer, mpu9250_measurement_t *output_array_pointer, int array_size) {
     float temp_x = 0;
     float temp_y = 0;
@@ -98,11 +109,6 @@ NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
 int main(void) {
     ret_code_t error_code = NRF_SUCCESS; // Don't need to redeclare error_code again
-
-    // Init timers:
-    lfclk_request(); // start clock
-    app_timer_init();
-    create_accel_timer(); //create our timer
 
     // initialize GPIO driver
     if (!nrfx_gpiote_is_init()) {
@@ -171,9 +177,17 @@ int main(void) {
     // Start the timer
     int delta_t_msec = 1000;
 
-    // DO NOT enable polling accel on a timer; use interrupt pin
-    //error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(delta_t_msec), NULL);
-    //APP_ERROR_CHECK(error_code);
+
+    // Init timers:
+    lfclk_request(); // start clock
+    app_timer_init();
+    create_main_loop_timer(); //create our timer
+    error_code = app_timer_start(main_loop_timer, APP_TIMER_TICKS(delta_t_msec), NULL);
+    APP_ERROR_CHECK(error_code);
+
+    // Setup variables for getting integration time
+    uint32_t current_time = 0;
+    uint32_t previous_time = 0;
 
     // Call MPU9250 init code with the I2C manager instance
     mpu9250_init(&twi_mngr_instance);
@@ -182,8 +196,19 @@ int main(void) {
 
     // loop forever
     while (1) {
+        current_time = app_timer_cnt_get();
+        uint32_t time_diff = app_timer_cnt_diff_compute(current_time, previous_time);
+        // Convert ticks to milliseconds
+        // https://devzone.nordicsemi.com/f/nordic-q-a/10414/milliseconds-since-startup
+        // ticks * ( (APP_TIMER_PRESCALER + 1 ) * 1000 ) / APP_TIMER_CLOCK_FREQ;        
+        float time_diff_msec = () / 
+        printf("TD: %li\n", time_diff);
+
         if (read_accel) {
             read_accel = false;
         }
+
+        previous_time = current_time;
+        nrf_delay_ms(500);
     }
 }
