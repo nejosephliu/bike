@@ -194,16 +194,27 @@ int main(void) {
 
     uint8_t print_counter = 0;
 
+    // Variables for AHRS calculation
+    float GyroMeasError = PI * (4.0f / 180.0f);   // gyroscope measurement error in rads/s (start at 40 deg/s)
+    float beta = sqrt(3.0f / 4.0f) * GyroMeasError;   // compute beta
+    float pitch, yaw, roll;
+    float a12, a22, a31, a32, a33; // rotation matrix coefficients for Euler angles and gravity components
+    float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest sensor data values
+    float lin_ax, lin_ay, lin_az;             // linear acceleration (acceleration with gravity component subtracted)
+    float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};    // vector to hold quaternion
+
     // loop forever
     while (1) {
         current_time = app_timer_cnt_get();
         uint32_t time_diff = app_timer_cnt_diff_compute(current_time, previous_time);
+
         // Convert ticks to milliseconds
         // https://devzone.nordicsemi.com/f/nordic-q-a/10414/milliseconds-since-startup
-        // ticks * ( (APP_TIMER_PRESCALER|RTC Clock Prescalar + 1 ) * 1000 ) / APP_TIMER_CLOCK_FREQ;        
-
-        // NOTE: I'm assuing an RTC prescalar of 32768Hz & clock freq of 32768Hz, as well!!!
-        float time_diff_msec = ((float)time_diff * (((float)0 + 1.0) * 1000.0)) / (float)32768;
+        // ticks * ( (APP_TIMER_PRESCALER|RTC Clock Prescalar + 1 ) * 1000 ) / APP_TIMER_CLOCK_FREQ;
+        // https://devzone.nordicsemi.com/f/nordic-q-a/26197/how-to-covert-app_timer-ticks-to-ms
+        // NOTE: I'm assuing an RTC prescalar of 0 & clock freq of 32768Hz, as well!!!
+        float time_diff_msec = ((float)time_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
+        //printf("%f\n", time_diff_msec);
 
         if (read_accel) {
             read_accel = false;
