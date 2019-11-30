@@ -89,7 +89,7 @@ float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_
     return previous_velocity;
 }
 
-void accel_read_IMU_interrupt_callback(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+void accel_read_IMU_interrupt_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
     read_accel = true;
 }
 
@@ -112,10 +112,10 @@ int main(void) {
 
     // Poll mpu9250 on its interrupt pin
 
-    nrf_drv_gpiote_in_config_t IMU_int_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
+    nrfx_gpiote_in_config_t IMU_int_config = NRFX_GPIOTE_CONFIG_IN_SENSE_LOTOHI(true);
     // IMU_int_config.pull = NRF_GPIO_PIN_PULLUP; // Disable pullup to see if accel INT pin active high will work
 
-    error_code = nrfx_gpiote_in_init(BUCKLER_IMU_INTERUPT, &IMU_int_config, test_printer);
+    error_code = nrfx_gpiote_in_init(BUCKLER_IMU_INTERUPT, &IMU_int_config, accel_read_IMU_interrupt_callback);
     APP_ERROR_CHECK(error_code);
     nrfx_gpiote_in_event_enable(BUCKLER_IMU_INTERUPT, true);
 
@@ -172,8 +172,8 @@ int main(void) {
     int delta_t_msec = 1000;
 
     // DO NOT enable polling accel on a timer; use interrupt pin
-    error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(delta_t_msec), NULL);
-    APP_ERROR_CHECK(error_code);
+    //error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(delta_t_msec), NULL);
+    //APP_ERROR_CHECK(error_code);
 
     // Call MPU9250 init code with the I2C manager instance
     mpu9250_init(&twi_mngr_instance);
@@ -184,26 +184,6 @@ int main(void) {
     while (1) {
         if (read_accel) {
             read_accel = false;
-            // acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
-            // measurement_array_counter++;
-            // sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
-            // // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
-            // // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
-            // //        avg_output.y_axis,
-            // //        avg_output.z_axis);
-            // current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
-            mpu9250_measurement_t measurement = mpu9250_read_gyro();
-            printf("Gyro X: %f\n", measurement.x_axis);
-            printf("Gyro Y: %f\n", measurement.y_axis);
-            printf("Gyro Z: %f\n", measurement.z_axis);
         }
-
-        // if((print_counter % 20) == 0) {
-        //     printf("Current Velocity: %f\n", current_velocity);
-        //     // }
-        //     print_counter++;
-        // }
-
-        //Do nothing to test the button interrupt
     }
 }
