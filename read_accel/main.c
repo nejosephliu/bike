@@ -42,14 +42,14 @@ static void lfclk_request(void) { // Enable clock to allow timers to work
     nrf_drv_clock_lfclk_request(NULL);
 }
 
-static void accel_read_callback(void *p_context) {
+static void accel_read_callback_timer(void *p_context) {
     read_accel = true;
 }
 
 static void create_accel_timer(void) {
     ret_code_t error_code = app_timer_create(&accel_timer_id,
                             APP_TIMER_MODE_REPEATED,
-                            accel_read_callback);
+                            accel_read_callback_timer);
     APP_ERROR_CHECK(error_code);
 }
 
@@ -89,9 +89,8 @@ float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_
     return previous_velocity;
 }
 
-void test_printer(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
-    printf("Hit the Interrupt on a Button Press\n");
-    printf("GPIO Pin Num: %li\n", pin);
+void accel_read_IMU_interrupt_callback(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+    read_accel = true;
 }
 
 // TWI Manager Instances
@@ -111,14 +110,14 @@ int main(void) {
     }
     APP_ERROR_CHECK(error_code);
 
-    printf("Init GPIO DRV\n");
+    // Poll mpu9250 on its interrupt pin
 
-    nrf_drv_gpiote_in_config_t in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
-    in_config.pull = NRF_GPIO_PIN_PULLUP; // Pullup disabled by default
+    nrf_drv_gpiote_in_config_t IMU_int_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
+    // IMU_int_config.pull = NRF_GPIO_PIN_PULLUP; // Disable pullup to see if accel INT pin active high will work
 
-    error_code = nrfx_gpiote_in_init(BUCKLER_BUTTON0, &in_config, test_printer);
+    error_code = nrfx_gpiote_in_init(BUCKLER_IMU_INTERUPT, &IMU_int_config, test_printer);
     APP_ERROR_CHECK(error_code);
-    nrfx_gpiote_in_event_enable(BUCKLER_BUTTON0, true);
+    nrfx_gpiote_in_event_enable(BUCKLER_IMU_INTERUPT, true);
 
 
     // configure leds
@@ -171,6 +170,8 @@ int main(void) {
 
     // Start the timer
     int delta_t_msec = 1000;
+
+    // DO NOT enable polling accel on a timer; use interrupt pin
     error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(delta_t_msec), NULL);
     APP_ERROR_CHECK(error_code);
 
@@ -181,22 +182,21 @@ int main(void) {
 
     // loop forever
     while (1) {
-        //printf("Accel is true\n");
-        // if (read_accel) {
-        //     read_accel = false;
-        //     // acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
-        //     // measurement_array_counter++;
-        //     // sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
-        //     // // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
-        //     // // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
-        //     // //        avg_output.y_axis,
-        //     // //        avg_output.z_axis);
-        //     // current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
-        //     mpu9250_measurement_t measurement = mpu9250_read_gyro();
-        //     printf("Gyro X: %f\n", measurement.x_axis);
-        //     printf("Gyro Y: %f\n", measurement.y_axis);
-        //     printf("Gyro Z: %f\n", measurement.z_axis);
-        // }
+        if (read_accel) {
+            read_accel = false;
+            // acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
+            // measurement_array_counter++;
+            // sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
+            // // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
+            // // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
+            // //        avg_output.y_axis,
+            // //        avg_output.z_axis);
+            // current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
+            mpu9250_measurement_t measurement = mpu9250_read_gyro();
+            printf("Gyro X: %f\n", measurement.x_axis);
+            printf("Gyro Y: %f\n", measurement.y_axis);
+            printf("Gyro Z: %f\n", measurement.z_axis);
+        }
 
         // if((print_counter % 20) == 0) {
         //     printf("Current Velocity: %f\n", current_velocity);
