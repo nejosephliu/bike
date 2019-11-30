@@ -155,7 +155,7 @@ int main(void) {
     float current_velocity = 0;
 
     // Start the timer
-    int delta_t_msec = 2;
+    int delta_t_msec = 1000;
     error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(delta_t_msec), NULL);
     APP_ERROR_CHECK(error_code);
 
@@ -169,20 +169,25 @@ int main(void) {
         //printf("Accel is true\n");
         if (read_accel) {
             read_accel = false;
-            acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
-            measurement_array_counter++;
-            sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
-            // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
-            // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
-            //        avg_output.y_axis,
-            //        avg_output.z_axis);
-            current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
+            // acc_array[measurement_array_counter % 16] = mpu9250_read_accelerometer();
+            // measurement_array_counter++;
+            // sliding_averager(acc_array, &avg_output, sizeof(acc_array) / sizeof(mpu9250_measurement_t));
+            // // printf("X: %f, Y: %f, Z: %f\n", acc_red.x_axis, acc_red.y_axis, acc_red.z_axis);
+            // // printf("X Axis Smoothed: %f\n Y Axis Smoothed: %f \nZ Axis Smoothed: %f\n\n", avg_output.x_axis,
+            // //        avg_output.y_axis,
+            // //        avg_output.z_axis);
+            // current_velocity = update_velocity(&avg_output, delta_t_msec, current_velocity);
+            mpu9250_measurement_t measurement = mpu9250_read_gyro();
+            printf("Gyro X: %f\n", measurement.x_axis);
+            printf("Gyro Y: %f\n", measurement.y_axis);
+            printf("Gyro Z: %f\n", measurement.z_axis);
         }
 
-        if((print_counter % 20) == 0) {
-            printf("Current Velocity: %f\n", current_velocity);
-        }
-        print_counter++;
+        // if((print_counter % 20) == 0) {
+        //     printf("Current Velocity: %f\n", current_velocity);
+        //     // }
+        //     print_counter++;
+        // }
+
     }
 }
-
