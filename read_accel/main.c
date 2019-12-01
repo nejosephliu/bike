@@ -17,9 +17,15 @@
 #include "app_timer.h"
 #include "nrf_drv_clock.h"
 
+#include <math.h>
 #include "buckler.h"
 #include "display.h"
 #include "mpu9250.h"
+#include "quaternionFilters.h"
+
+// Math constants
+
+#define PI 3.14159265359
 
 // LED array on NRF (4 total)
 // #define NRF_LED0 NRF_GPIO_PIN_MAP(0,17)
@@ -194,9 +200,11 @@ int main(void) {
 
     uint8_t print_counter = 0;
 
-    // Variables for AHRS calculation
+    // Madewick algo hyperparameters; do not change during execution
     float GyroMeasError = PI * (4.0f / 180.0f);   // gyroscope measurement error in rads/s (start at 40 deg/s)
     float beta = sqrt(3.0f / 4.0f) * GyroMeasError;   // compute beta
+
+    // Variables for AHRS calculation
     float pitch, yaw, roll;
     float a12, a22, a31, a32, a33; // rotation matrix coefficients for Euler angles and gravity components
     float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest sensor data values
@@ -212,12 +220,19 @@ int main(void) {
         // https://devzone.nordicsemi.com/f/nordic-q-a/10414/milliseconds-since-startup
         // ticks * ( (APP_TIMER_PRESCALER|RTC Clock Prescalar + 1 ) * 1000 ) / APP_TIMER_CLOCK_FREQ;
         // https://devzone.nordicsemi.com/f/nordic-q-a/26197/how-to-covert-app_timer-ticks-to-ms
-        // NOTE: I'm assuing an RTC prescalar of 0 & clock freq of 32768Hz, as well!!!
+        // NOTE: I'm assuing an RTC prescalar of 0 & clock freq of 32768Hz!!!
         float time_diff_msec = ((float)time_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
-        //printf("%f\n", time_diff_msec);
+
 
         if (read_accel) {
             read_accel = false;
+            mpu9250_read_accelerometer_pointer(&ax, &ay, &az);
+            mpu9250_read_gyro_pointer(&gx, &gy, &gz);
+            mpu9250_read_magnetometer_pointer(&mx, &my, &mz);
+            if ((print_counter % 200) == 0) {
+                printf("Value of AX: %f\n", ax);
+            }
+            print_counter++;
         }
 
         previous_time = current_time;
