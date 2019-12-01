@@ -223,7 +223,7 @@ int main(void) {
         // NOTE: I'm assuing an RTC prescalar of 0 & clock freq of 32768Hz!!!
         float time_diff_msec = ((float)time_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
 
-        //printf("Done\n");
+        
         if (read_accel) {
             read_accel = false;
             mpu9250_read_accelerometer_pointer(&ax, &ay, &az);
@@ -248,7 +248,14 @@ int main(void) {
         lin_ax = ax + a31;
         lin_ay = ay + a32;
         lin_az = az - a33;
-        printf("%f--%f--%f--%f\n", q[0],q[1],q[2],q[3]);
+        if ((print_counter % 1000) == 0) {
+
+            // Various things you can print out to RTT. Uncomment as needed
+            //printf("X: %f\nY: %f\nZ: %f\n\n", ax, ay, az); // Raw accel
+            //printf("X: %f\nY: %f\nZ: %f\n\n", lin_ax, lin_ay, lin_az); // Accel corrected for gravity and oreitnation
+            printf("Pitch: %f\nYaw: %f\n Roll: %f\n\n", pitch, yaw, roll); // Pitch, yaw, and roll.
+        }
+        print_counter+=1;
         previous_time = current_time;
     }
 }
