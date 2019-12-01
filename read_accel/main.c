@@ -198,7 +198,7 @@ int main(void) {
     // Call MPU9250 init code with the I2C manager instance
     mpu9250_init(&twi_mngr_instance);
 
-    uint8_t print_counter = 0;
+    uint16_t print_counter = 0;
 
     // Madewick algo hyperparameters; do not change during execution
     float GyroMeasError = PI * (4.0f / 180.0f);   // gyroscope measurement error in rads/s (start at 40 deg/s)
@@ -223,18 +223,32 @@ int main(void) {
         // NOTE: I'm assuing an RTC prescalar of 0 & clock freq of 32768Hz!!!
         float time_diff_msec = ((float)time_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
 
-
+        //printf("Done\n");
         if (read_accel) {
             read_accel = false;
             mpu9250_read_accelerometer_pointer(&ax, &ay, &az);
             mpu9250_read_gyro_pointer(&gx, &gy, &gz);
             mpu9250_read_magnetometer_pointer(&mx, &my, &mz);
-            if ((print_counter % 200) == 0) {
-                printf("Value of AX: %f\n", ax);
-            }
-            print_counter++;
         }
+        MadgwickQuaternionUpdate(q, beta, time_diff_msec, -ax, ay, az, gx * PI / 180.0f, -gy * PI / 180.0f, -gz * PI / 180.0f,  my,  -mx, mz);
 
+        a12 =   2.0f * (q[1] * q[2] + q[0] * q[3]);
+        a22 =   q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3];
+        a31 =   2.0f * (q[0] * q[1] + q[2] * q[3]);
+        a32 =   2.0f * (q[1] * q[3] - q[0] * q[2]);
+        a33 =   q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3];
+        pitch = -asinf(a32);
+        roll  = atan2f(a31, a33);
+        yaw   = atan2f(a12, a22);
+        pitch *= 180.0f / PI;
+        yaw   *= 180.0f / PI;
+        yaw   += 13.2f; // Declination in Belmont, California is 13 degrees 20 minutes 2019-11-30
+        if(yaw < 0) yaw   += 360.0f; // Ensure yaw stays between 0 and 360
+        roll  *= 180.0f / PI;
+        lin_ax = ax + a31;
+        lin_ay = ay + a32;
+        lin_az = az - a33;
+        printf("%f--%f--%f--%f\n", q[0],q[1],q[2],q[3]);
         previous_time = current_time;
     }
 }
