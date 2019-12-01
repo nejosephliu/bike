@@ -3,25 +3,21 @@
 // Uses a hall effect sensor and magnets to control an LED
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 
 #include "app_error.h"
 #include "nrf.h"
-#include "nrf_delay.h"
 #include "nrfx_gpiote.h"
 #include "nrf_gpio.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #include "nrf_pwr_mgmt.h"
-#include "nrf_serial.h"
 
 #include "buckler.h"
 
 #define HALL_PIN NRF_GPIO_PIN_MAP(0,15)
-#define NRF_LED0 NRF_GPIO_PIN_MAP(0,17)
-// Or use BUCKLER_LED0
+#define NRF_LED0 NRF_GPIO_PIN_MAP(0,17) // Or use BUCKLER_LED0
 
 volatile bool magnet = false;  // Global variable
 
