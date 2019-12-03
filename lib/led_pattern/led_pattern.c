@@ -7,12 +7,13 @@
 #include "app_timer.h"
 #include "nrfx_clock.h"
 
+#include "states.h"
 #include "led_strip.h"
 #include "led_pattern.h"
 
 static uint16_t numLEDs = 0;
 
-static states state = NORMAL;
+static states state = IDLE;
 static uint16_t iteration = 0;
 
 APP_TIMER_DEF(pattern_timer_id);
@@ -25,7 +26,7 @@ static void clear_pattern() {
 }
 
 // Callbacks for specific states
-static void normal_callback() {
+static void idle_callback() {
   clear_pattern();
   for (int i=0; i < numLEDs; i++) {
 	led_set_pixel_RGB(i, 0, 100, 200); // Red-orange
@@ -64,7 +65,7 @@ static void brake_callback() { // Flash red lights
 // General Timer callback
 static void pattern_timer_callback(void* p_context) {
   switch (state) {
-  case NORMAL: normal_callback();
+  case IDLE: idle_callback();
 	break;
   case RIGHT: right_callback();
 	break;
@@ -72,7 +73,7 @@ static void pattern_timer_callback(void* p_context) {
 	break;
   case BRAKE: brake_callback();
 	break;
-  default: normal_callback();
+  default: idle_callback();
 	break;
   }
 }

@@ -16,6 +16,7 @@
 #include "nrf_log_default_backends.h"
 #include "nrfx_pwm.h"
 
+#include "states.h"
 #include "led_strip.h"
 #include "led_pattern.h"
 
@@ -69,7 +70,7 @@ int main(void) {
 
   // loop forever
   while (1) {
-	state = NORMAL;
+	state = IDLE;
 	pattern_update_state(state);
 	nrf_delay_ms(5000);
 	state = LEFT;
