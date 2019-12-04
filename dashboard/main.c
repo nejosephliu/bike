@@ -12,17 +12,19 @@
 #include "nrf_log_default_backends.h"
 #include "nrf_pwr_mgmt.h"
 
-#include "nrf_drv_clock.h"
-#include "app_timer.h"
-
 #include "buckler.h"
 
-#include "speech_recognizer.h"
+// Timer includes
+#include "nrf_drv_clock.h"
+#include "app_timer.h"
+// Project includes
+#include "states.h"
 #include "grove_display.h"
 #include "buckler_accelerometer.h"
 #include "gyro.h"
-
 #include "mpu9250.h"
+
+states state = IDLE;
 
 int main(void) {
   ret_code_t error_code = NRF_SUCCESS;
@@ -35,7 +37,6 @@ int main(void) {
 
   init_tm1637_display(0);
   init_tm1637_display(1);
-
   clearDisplay(0);
   clearDisplay(1);
   
@@ -49,24 +50,14 @@ int main(void) {
   
   // initialization complete
   printf("Buckler initialized!\n");
-    
-  mpu9250_start_gyro_integration();
-
-  //float x_cancel_rate = 0.18955;
-  //float x_cancel = x_cancel_rate;
 
   while (1) {
     calculate_accelerometer_values();
 
     float x_val = get_x_g();
-    printf("X value: %f\n", x_val);
     float y_val = get_y_g();
-    printf("Y value: %f\n", y_val);
     float z_val = get_z_g();
-    printf("Z value: %f\n", z_val);
-
-    float x_degree = get_x_degree();
-    displayNum(x_degree, 0, true, 0);
+    printf("X: %f\t Y: %f\t Z: %f\n", x_val, y_val, z_val);
 
     float y_degree = get_y_degree();
 
@@ -79,20 +70,5 @@ int main(void) {
     }
     
     nrf_delay_ms(50);
-
-
-    /*mpu9250_measurement_t measurement = mpu9250_read_gyro_integration();
-    float x_angle = measurement.x_axis;
-    x_angle += x_cancel;
-    x_cancel += x_cancel_rate;
-    if (x_angle < -350) {
-        mpu9250_stop_gyro_integration();
-        mpu9250_start_gyro_integration();
-    }
-    printf("X Angle: %f\n", x_angle);
-    float y_angle = measurement.y_axis;
-    printf("Y Angle: %f\n", y_angle);
-    float z_angle = measurement.z_axis;
-    printf("Z Angle: %f\n", z_angle);*/
   }
 }
