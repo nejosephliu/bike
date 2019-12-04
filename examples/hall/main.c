@@ -55,8 +55,8 @@ int main(void) {
   // configure hall switch
   // input pin, trigger on either edge, low accuracy (allows low-power operation)
   nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(false);
-  in_config.pull = NRF_GPIO_PIN_NOPULL;
   error_code = nrfx_gpiote_in_init(HALL_PIN, &in_config, hall_switch_handler);
+  APP_ERROR_CHECK(error_code);
   nrfx_gpiote_in_event_enable(HALL_PIN, true);
 
   // set initial states for LEDs
