@@ -93,8 +93,12 @@ void sliding_averager(mpu9250_measurement_t *input_array_pointer, mpu9250_measur
     return;
 }
 
-float sliding_averager_float_array(float input_array_pointer, int array_size) {
-    // Might need a mutex lock here!!! 
+float sliding_averager_float_array(float *input_array_pointer, int array_size) {
+    float output = 0;
+    for (int i = 0; i < array_size; i++) {
+        output += input_array_pointer[i];
+    }
+    return output / array_size;
 }
 
 float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_msec, float previous_velocity) {
@@ -183,7 +187,8 @@ int main(void) {
     mpu9250_measurement_t avg_output = {0};
 
     // Smooth over 1 sec of data
-    float smoother_array[200] = {0}
+    float smoother_array[400] = {0};
+    uint16_t smoother_array_index = 0;
 
     uint16_t measurement_array_counter = 0;
 
@@ -239,6 +244,7 @@ int main(void) {
             mpu9250_read_accelerometer_pointer(&ax, &ay, &az);
             mpu9250_read_gyro_pointer(&gx, &gy, &gz);
             mpu9250_read_magnetometer_pointer(&mx, &my, &mz);
+            print_counter += 1;
         }
         MadgwickQuaternionUpdate(q, beta, time_diff_msec, -ax, ay, az, gx * PI / 180.0f, -gy * PI / 180.0f, -gz * PI / 180.0f,  my,  -mx, mz);
 
@@ -259,16 +265,21 @@ int main(void) {
         lin_ay = ay + a32;
         lin_az = az - a33;
 
-        if ((print_counter % 1000) == 0) {
+        // Put variable into our smoother array
+
+        smoother_array[smoother_array_index % 400] = yaw;
+        smoother_array_index++;
+
+        if ((print_counter % 100) == 0) {
 
             // Various things you can print out to RTT. Uncomment as needed
             //printf("X: %f\nY: %f\nZ: %f\n\n", ax, ay, az); // Raw accel
             //printf("X: %f\nY: %f\nZ: %f\n\n", lin_ax, lin_ay, lin_az); // Accel corrected for gravity and oreitnation
             //printf("Pitch: %f\nYaw: %f\n Roll: %f\n\n", pitch, yaw, roll); // Pitch, yaw, and roll.
-            snprintf(display_buf, 16, "Yaw: %f", yaw);
-            display_write(display_buf, DISPLAY_LINE_0);
+            // snprintf(display_buf, 16, "Yaw: %f", yaw);
+            // display_write(display_buf, DISPLAY_LINE_0);
+            printf("Smooth yaw: %f\n", sliding_averager_float_array(smoother_array, 400));
         }
-        print_counter += 1;
         previous_time = current_time;
     }
 }
