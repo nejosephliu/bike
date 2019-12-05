@@ -23,6 +23,7 @@
 #include "gyro.h"
 
 #include "mpu9250.h"
+#include "si7021.h"
 
 int main(void) {
   ret_code_t error_code = NRF_SUCCESS;
@@ -46,6 +47,10 @@ int main(void) {
 
   init_accelerometer();
   init_gyro();
+
+  //si7021_init()
+
+
   
   // initialization complete
   printf("Buckler initialized!\n");
@@ -77,6 +82,8 @@ int main(void) {
     } else {
         displayNum(y_degree, 0, true, 1);
     }
+
+
     
     nrf_delay_ms(50);
 
