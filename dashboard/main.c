@@ -40,6 +40,7 @@ APP_TIMER_DEF(fsm_timer_id);
 // APP_TIMER_DEF(voice_timer_id);  // TO BE IMPLEMENTED
 APP_TIMER_DEF(accel_timer_id);
 
+NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
 states curr_state = IDLE;
 states button_next_state;  // Button-controlled
@@ -152,7 +153,7 @@ int main(void) {
 
   // initialize Accelerometer/Gyro (May need to be rewritten)
   init_accelerometer();
-  init_gyro();
+  init_gyro(&twi_mngr_instance);
 
   // initialize LEDs
   uint16_t numLEDs = 8;
@@ -172,7 +173,7 @@ int main(void) {
   error_code = app_timer_create(&accel_timer_id, APP_TIMER_MODE_REPEATED,
 								&accel_timer_callback);
   APP_ERROR_CHECK(error_code);
-  error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(1000), NULL);
+  error_code = app_timer_start(accel_timer_id, APP_TIMER_TICKS(200), NULL);
 
   while (1) {
 	nrf_pwr_mgmt_run();
