@@ -18,6 +18,9 @@
 #include "nrfx_pwm.h"
 #include "nrf_pwr_mgmt.h"
 
+#include "app_timer.h"
+#include "nrfx_clock.h"
+
 #include "states.h"
 #include "led_strip.h"
 #include "led_pattern.h"
@@ -43,6 +46,10 @@ void button_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
 	break;
   }
   pattern_update_state(state);
+}
+
+// General clock callback (not used)
+static void clock_handler(nrfx_clock_evt_type_t event) {
 }
 
 int main(void) {
@@ -73,6 +80,14 @@ int main(void) {
 	APP_ERROR_CHECK(error_code);
 	nrfx_gpiote_in_event_enable(BUTTONS[i], true);
   }
+
+  // initialize timer
+  error_code = nrfx_clock_init(&clock_handler);
+  APP_ERROR_CHECK(error_code);
+  if (!nrfx_clock_lfclk_is_running()) {
+	nrfx_clock_lfclk_start();
+  }
+  app_timer_init();
 
   uint16_t numLEDs = 8;
   led_init(numLEDs, LED_PWM); // assume success
