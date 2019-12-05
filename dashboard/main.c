@@ -64,7 +64,7 @@ void fsm_timer_callback(void* p_context) {
   }
 
   displayNum(hall_revolutions, 0, false, 0);
-  printf("Hall revolutions: %d\n", hall_revolutions);
+  // printf("Hall revolutions: %d\n", hall_revolutions);
   hall_revolutions = 0;
 }
 
@@ -82,7 +82,6 @@ void button_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
 }
 
 void accel_timer_callback(void* p_context) {
-  /*
   calculate_accelerometer_values();
 
   float x_val = get_x_g();
@@ -98,7 +97,6 @@ void accel_timer_callback(void* p_context) {
   } else {
 	accel_next_state = IDLE;
   }
-  */
 }
 
 void hall_switch_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
@@ -152,8 +150,8 @@ int main(void) {
   clearDisplay(1);
 
   // initialize Accelerometer/Gyro (May need to be rewritten)
-  // init_accelerometer();
-  // init_gyro();
+  init_accelerometer();
+  init_gyro();
 
   // initialize LEDs
   uint16_t numLEDs = 8;
