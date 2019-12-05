@@ -24,7 +24,6 @@
 #include "led_strip.h"
 
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 16) // GPIO pin to control LED signal
-static nrfx_pwm_t m_pwm0 = NRFX_PWM_INSTANCE(0);
 
 int main(void) {
   ret_code_t error_code = NRF_SUCCESS;
@@ -41,30 +40,9 @@ int main(void) {
   }
   APP_ERROR_CHECK(error_code);
 
-  // configure GPIO pin
-  // manually-controlled (simple) output, initially set
-  nrfx_gpiote_out_config_t out_config = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(true);
-  error_code = nrfx_gpiote_out_init(LED_PWM, &out_config);
-  APP_ERROR_CHECK(error_code);
-
-  // initialize PWM driver
-  nrfx_pwm_config_t const config = {
-   .output_pins = {LED_PWM, // NRFX_PWM_PIN_INVERTED makes no difference
-				   NRFX_PWM_PIN_NOT_USED,
-				   NRFX_PWM_PIN_NOT_USED,
-				   NRFX_PWM_PIN_NOT_USED},
-   .irq_priority = APP_IRQ_PRIORITY_LOW,
-   .base_clock = NRF_PWM_CLK_16MHz,
-   .count_mode = NRF_PWM_MODE_UP,
-   .top_value = 21,
-   .load_mode = NRF_PWM_LOAD_COMMON,
-   .step_mode = NRF_PWM_STEP_AUTO
-  };
-  error_code = nrfx_pwm_init(&m_pwm0, &config, NULL);
-  APP_ERROR_CHECK(error_code);
-
+  // GPIO and PWM configured in led_init
   uint16_t numLEDs = 8;
-  led_init(numLEDs, m_pwm0); // assume success
+  led_init(numLEDs, LED_PWM); // assume success
 
   led_clear();
   led_show();

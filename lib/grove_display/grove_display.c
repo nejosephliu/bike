@@ -1,5 +1,17 @@
 #include "grove_display.h"
 
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+
+#include "app_error.h"
+#include "nrf.h"
+#include "nrf_delay.h"
+#include "nrfx_gpiote.h"
+#include "nrf_gpio.h"
+
+#include "buckler.h"
+
 const int DIGITS = 4;
 
 uint32_t clock_pin_0 = BUCKLER_GROVE_A0;
@@ -16,7 +28,7 @@ static int8_t tube_tab[] =  {0x3f, 0x06, 0x5b, 0x4f,
                             0x39, 0x5e, 0x79, 0x71
                             }; //0~9,A,b,C,d,E,F
 
-uint8_t char2segments(char c) {
+static uint8_t char2segments(char c) {
   switch (c)
   {
     case '_' : return 0x08;
@@ -46,6 +58,109 @@ uint8_t char2segments(char c) {
     case 'y' : return 0x66; // =4
   }
   return 0;
+}
+
+static int8_t coding(int8_t disp_data) {
+  if (disp_data == 0x7f)
+    disp_data = 0x00; // Clear digit
+  else if (disp_data >= 0 && disp_data < (int)(sizeof(tube_tab)/sizeof(*tube_tab)))
+    disp_data = tube_tab[disp_data];
+  else if ( disp_data >= '0' && disp_data <= '9' )
+    disp_data = tube_tab[(int)(disp_data)-48]; // char to int (char "0" = ASCII 48)
+  else
+    disp_data = char2segments(disp_data);
+  disp_data += _PointFlag == POINT_ON ? 0x80 : 0;
+
+  return disp_data;
+}
+
+// static void coding2(int8_t disp_data[]) {
+//   for (uint8_t i = 0; i < DIGITS; i++)
+//     disp_data[i] = coding(disp_data[i]);
+// }
+
+static void bitDelay() {
+  nrf_delay_us(50);
+}
+
+static void clockPinLow(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_clear(clock_pin);
+}
+
+static void clockPinHigh(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_set(clock_pin);
+}
+
+static void dataPinLow(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_clear(data_pin);
+}
+
+static void dataPinHigh(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_set(data_pin);
+}
+
+static void clockPinOutput(int port_number) {
+    uint32_t clock_pin;
+    if (port_number == 0) {
+        clock_pin = clock_pin_0;
+    } else {
+        clock_pin = clock_pin_1;
+    }
+    nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_OUTPUT);
+}
+
+// static void clockPinInput(int port_number) {
+//     uint32_t clock_pin;
+//     if (port_number == 0) {
+//         clock_pin = clock_pin_0;
+//     } else {
+//         clock_pin = clock_pin_1;
+//     }
+//     nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_INPUT);
+// }
+
+static void dataPinOutput(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_OUTPUT);
+}
+
+static void dataPinInput(int port_number) {
+    uint32_t data_pin;
+    if (port_number == 0) {
+        data_pin = data_pin_0;
+    } else {
+        data_pin = data_pin_1;
+    }
+    nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_INPUT);
 }
 
 
@@ -83,9 +198,8 @@ void init_tm1637_display(int port_number) {
     dataPinOutput(port_number);
 }
 
-int writeByte(int8_t wr_data, int port_number) {
-  for (uint8_t i = 0; i < 8; i++) // Sent 8bit data
-  {
+static int writeByte(int8_t wr_data, int port_number) {
+  for (uint8_t i = 0; i < 8; i++) {  // Sent 8bit data
     clockPinLow(port_number);
 
     if (wr_data & 0x01)
@@ -111,8 +225,7 @@ int writeByte(int8_t wr_data, int port_number) {
   }
   uint8_t ack = nrf_gpio_pin_read(data_pin);
 
-  if (ack == 0)
-  {
+  if (ack == 0) {
     dataPinOutput(port_number);
     dataPinLow(port_number);
   }
@@ -124,14 +237,14 @@ int writeByte(int8_t wr_data, int port_number) {
   return ack;
 }
 
-void start(int port_number) {
+static void start(int port_number) {
   clockPinHigh(port_number);
   dataPinHigh(port_number);
   dataPinLow(port_number);
   clockPinLow(port_number);
 }
 
-void stop(int port_number) {
+static void stop(int port_number) {
   clockPinLow(port_number);
   dataPinLow(port_number);
   clockPinHigh(port_number);
@@ -163,8 +276,7 @@ void displayNum(float num, int decimal, bool show_minus, int port_number) {
 
   int number = fabs(num) * pow(10, decimal);
 
-  for (int i = 0; i < DIGITS - (show_minus && num < 0 ? 1 : 0); ++i)
-  {
+  for (int i = 0; i < DIGITS - (show_minus && num < 0 ? 1 : 0); ++i) {
     int j = DIGITS - i - 1;
 
     if (number != 0)
@@ -184,8 +296,7 @@ void displayNum(float num, int decimal, bool show_minus, int port_number) {
     point(false);
 }
 
-void displayStr(const char str[], int port_number)
-{
+void displayStr(const char str[], int port_number) {
   for (int i = 0; i < (int)(strlen(str)); i++) {
     if (i + 1 > DIGITS) {
       nrf_delay_ms(500); //loop delay
@@ -212,109 +323,6 @@ void clearDisplay(int port_number) {
 
 void point(bool PointFlag) {
   _PointFlag = PointFlag;
-}
-
-void coding2(int8_t disp_data[]) {
-  for (uint8_t i = 0; i < DIGITS; i++)
-    disp_data[i] = coding(disp_data[i]);
-}
-
-int8_t coding(int8_t disp_data) {
-  if (disp_data == 0x7f)
-    disp_data = 0x00; // Clear digit
-  else if (disp_data >= 0 && disp_data < (int)(sizeof(tube_tab)/sizeof(*tube_tab)))
-    disp_data = tube_tab[disp_data];
-  else if ( disp_data >= '0' && disp_data <= '9' )
-    disp_data = tube_tab[(int)(disp_data)-48]; // char to int (char "0" = ASCII 48)
-  else
-    disp_data = char2segments(disp_data);
-  disp_data += _PointFlag == POINT_ON ? 0x80 : 0;
-
-  return disp_data;
-}
-
-void bitDelay() {
-  nrf_delay_us(50);
-}
-
-void clockPinLow(int port_number) {
-    uint32_t clock_pin;
-    if (port_number == 0) {
-        clock_pin = clock_pin_0;
-    } else {
-        clock_pin = clock_pin_1;
-    }
-    nrf_gpio_pin_clear(clock_pin);
-}
-
-void clockPinHigh(int port_number) {
-    uint32_t clock_pin;
-    if (port_number == 0) {
-        clock_pin = clock_pin_0;
-    } else {
-        clock_pin = clock_pin_1;
-    }
-    nrf_gpio_pin_set(clock_pin);
-}
-
-void dataPinLow(int port_number) {
-    uint32_t data_pin;
-    if (port_number == 0) {
-        data_pin = data_pin_0;
-    } else {
-        data_pin = data_pin_1;
-    }
-    nrf_gpio_pin_clear(data_pin);
-}
-
-void dataPinHigh(int port_number) {
-    uint32_t data_pin;
-    if (port_number == 0) {
-        data_pin = data_pin_0;
-    } else {
-        data_pin = data_pin_1;
-    }
-    nrf_gpio_pin_set(data_pin);
-}
-
-void clockPinOutput(int port_number) {
-    uint32_t clock_pin;
-    if (port_number == 0) {
-        clock_pin = clock_pin_0;
-    } else {
-        clock_pin = clock_pin_1;
-    }
-    nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_OUTPUT);
-}
-
-void clockPinInput(int port_number) {
-    uint32_t clock_pin;
-    if (port_number == 0) {
-        clock_pin = clock_pin_0;
-    } else {
-        clock_pin = clock_pin_1;
-    }
-    nrf_gpio_pin_dir_set(clock_pin, NRF_GPIO_PIN_DIR_INPUT);
-}
-
-void dataPinOutput(int port_number) {
-    uint32_t data_pin;
-    if (port_number == 0) {
-        data_pin = data_pin_0;
-    } else {
-        data_pin = data_pin_1;
-    }
-    nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_OUTPUT);
-}
-
-void dataPinInput(int port_number) {
-    uint32_t data_pin;
-    if (port_number == 0) {
-        data_pin = data_pin_0;
-    } else {
-        data_pin = data_pin_1;
-    }
-    nrf_gpio_pin_dir_set(data_pin, NRF_GPIO_PIN_DIR_INPUT);
 }
 
 void setBrightness(uint8_t new_brightness) {
