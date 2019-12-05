@@ -22,16 +22,14 @@
 #include "led_strip.h"
 #include "led_pattern.h"
 
-#define LED_PWM NRF_GPIO_PIN_MAP(0, 17) // GPIO pin to control LED signal
-static nrfx_pwm_t m_pwm0 = NRFX_PWM_INSTANCE(0);
-
+#define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
 #define NRF_BUTTON0 NRF_GPIO_PIN_MAP(0, 13) // Buttons to select state
 #define NRF_BUTTON1 NRF_GPIO_PIN_MAP(0, 14)
 #define NRF_BUTTON2 NRF_GPIO_PIN_MAP(0, 15)
 #define NRF_BUTTON3 NRF_GPIO_PIN_MAP(0, 16)
 static uint8_t BUTTONS[4] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2, NRF_BUTTON3};
 
-states state;
+states state;  // Global state variable
 
 void button_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
   switch (pin) {
@@ -44,7 +42,6 @@ void button_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
   case NRF_BUTTON3: state = BRAKE;
 	break;
   }
-  // printf("Reached pin %ld\n", pin);
   pattern_update_state(state);
 }
 
@@ -69,9 +66,6 @@ int main(void) {
 
   // configure GPIO pins
   // manually-controlled (simple) output, initially set
-  nrfx_gpiote_out_config_t out_config = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(true);
-  error_code = nrfx_gpiote_out_init(LED_PWM, &out_config);
-  APP_ERROR_CHECK(error_code);
   nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(false);
   in_config.pull = NRF_GPIO_PIN_PULLUP;
   for (int i=0; i<4; i++) {
@@ -80,29 +74,10 @@ int main(void) {
 	nrfx_gpiote_in_event_enable(BUTTONS[i], true);
   }
 
-  // initialize PWM driver
-  nrfx_pwm_config_t const config = {
-   .output_pins = {LED_PWM, // NRFX_PWM_PIN_INVERTED makes no difference
-				   NRFX_PWM_PIN_NOT_USED,
-				   NRFX_PWM_PIN_NOT_USED,
-				   NRFX_PWM_PIN_NOT_USED},
-   .irq_priority = APP_IRQ_PRIORITY_LOW,
-   .base_clock = NRF_PWM_CLK_16MHz,
-   .count_mode = NRF_PWM_MODE_UP,
-   .top_value = 21,
-   .load_mode = NRF_PWM_LOAD_COMMON,
-   .step_mode = NRF_PWM_STEP_AUTO
-  };
-  error_code = nrfx_pwm_init(&m_pwm0, &config, NULL);
-  APP_ERROR_CHECK(error_code);
-
   uint16_t numLEDs = 8;
-  led_init(numLEDs, m_pwm0); // assume success
-  pattern_init(numLEDs);     // assume success
-
-  // nrf_delay_ms(1000);
+  led_init(numLEDs, LED_PWM); // assume success
+  pattern_init(numLEDs);      // assume success
   pattern_start();
-  printf("Ready");
 
   // loop forever
   while (1) {
