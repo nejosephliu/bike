@@ -33,6 +33,7 @@
 #define NRF_BUTTON2 NRF_GPIO_PIN_MAP(0, 15)
 #define NRF_BUTTON3 NRF_GPIO_PIN_MAP(0, 16)
 static uint8_t BUTTONS[4] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2, NRF_BUTTON3};
+#define HALL_PIN NRF_GPIO_PIN_MAP(0, 11)
 
 APP_TIMER_DEF(fsm_timer_id);
 // APP_TIMER_DEF(voice_timer_id);  // TO BE IMPLEMENTED
@@ -43,6 +44,8 @@ states curr_state = IDLE;
 states button_next_state;  // Button-controlled
 // states voice_next_state;   // Voice-controlled
 states accel_next_state;   // Accelerometer/Automatically controlled
+
+int hall_revolutions = 0;  // Hall sensor counter
 
 // Main FSM Callback
 void fsm_timer_callback(void* p_context) {
@@ -59,6 +62,10 @@ void fsm_timer_callback(void* p_context) {
 	break;
   default: displayStr("----", 1);
   }
+
+  displayNum(hall_revolutions, 0, false, 0);
+  printf("Hall revolutions: %d\n", hall_revolutions);
+  hall_revolutions = 0;
 }
 
 void button_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
@@ -72,7 +79,6 @@ void button_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
   case NRF_BUTTON3: button_next_state = BRAKE;
 	break;
   }
-  // pattern_update_state(curr_state);
 }
 
 void accel_timer_callback(void* p_context) {
@@ -95,6 +101,10 @@ void accel_timer_callback(void* p_context) {
   */
 }
 
+void hall_switch_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+  hall_revolutions += 1;
+}
+
 // General clock callback (not used)
 static void clock_handler(nrfx_clock_evt_type_t event) {
 }
@@ -113,8 +123,8 @@ int main(void) {
   }
   APP_ERROR_CHECK(error_code);
 
-  // configure GPIO pins
-  // manually-controlled (simple) output, initially set
+  // configure GPIO pins (buttons and hall switch)
+  // weird behavior between IN_EVENT and PORT_EVENT
   nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(false);
   in_config.pull = NRF_GPIO_PIN_PULLUP;
   for (int i=0; i<4; i++) {
@@ -122,6 +132,10 @@ int main(void) {
 	APP_ERROR_CHECK(error_code);
 	nrfx_gpiote_in_event_enable(BUTTONS[i], true);
   }
+  nrfx_gpiote_in_config_t in_config2 = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
+  error_code = nrfx_gpiote_in_init(HALL_PIN, &in_config2, hall_switch_handler);
+  APP_ERROR_CHECK(error_code);
+  nrfx_gpiote_in_event_enable(HALL_PIN, true);
 
   // initialize clock and timer
   error_code = nrfx_clock_init(&clock_handler);
