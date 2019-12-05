@@ -1,12 +1,5 @@
 #pragma once
 
-typedef enum {
-  NORMAL,
-  RIGHT,
-  LEFT,
-  BRAKE,
-} states;
-
 // Initializes LED pattern.  Only call this once.
 int pattern_init(uint16_t numLED);
 

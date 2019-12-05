@@ -3,29 +3,58 @@
 
 #include "app_error.h"
 #include "nrf.h"
+#include "nrfx_gpiote.h"
+#include "nrf_gpio.h"
 #include "nrfx_pwm.h"
 #include "led_strip.h"
 
 static uint16_t numLEDs = 0;  // Number of LEDs to control
 static uint8_t *pixels = 0;   // Pixel array
-static nrfx_pwm_t m_pwm0;     // PWM Driver
+static nrfx_pwm_t m_pwm0 = NRFX_PWM_INSTANCE(0);     // PWM Driver
 
-int led_init(uint16_t numLED, nrfx_pwm_t pwm) {
+int led_init(uint16_t numLED, nrfx_gpiote_pin_t pin) {
   // Setting number of LEDs, returning error if already set
   if (numLEDs != 0) {
 	return 1;
   }
-  numLEDs = numLED;
+
+  // Initialize GPIO
+  ret_code_t error_code = NRF_SUCCESS;
+  if (!nrfx_gpiote_is_init()) {
+	error_code = nrfx_gpiote_init();
+  }
+  APP_ERROR_CHECK(error_code);
+
+  // Configure GPIO pin
+  nrfx_gpiote_out_config_t out_config = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(true);
+  error_code = nrfx_gpiote_out_init(pin, &out_config);
+  APP_ERROR_CHECK(error_code);
+
+  // Initialize PWM driver
+  nrfx_pwm_config_t const config = {
+   .output_pins = {pin, // NRFX_PWM_PIN_INVERTED makes no difference
+				   NRFX_PWM_PIN_NOT_USED,
+				   NRFX_PWM_PIN_NOT_USED,
+				   NRFX_PWM_PIN_NOT_USED},
+   .irq_priority = APP_IRQ_PRIORITY_LOW,
+   .base_clock = NRF_PWM_CLK_16MHz,
+   .count_mode = NRF_PWM_MODE_UP,
+   .top_value = 21,
+   .load_mode = NRF_PWM_LOAD_COMMON,
+   .step_mode = NRF_PWM_STEP_AUTO
+  };
+  error_code = nrfx_pwm_init(&m_pwm0, &config, NULL);
+  APP_ERROR_CHECK(error_code);
 
   // Malloc enough bytes for pixels
-  uint16_t numBytes = numLEDs * 3;
+  uint16_t numBytes = numLED * 3;
   pixels = (uint8_t*) malloc(numBytes);
   if (pixels == NULL) {
 	return 1;
   }
   memset(pixels, 0, numBytes);
 
-  m_pwm0 = pwm;
+  numLEDs = numLED;
   return 0;
 }
 
