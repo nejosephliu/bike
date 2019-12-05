@@ -93,6 +93,10 @@ void sliding_averager(mpu9250_measurement_t *input_array_pointer, mpu9250_measur
     return;
 }
 
+float sliding_averager_float_array(float input_array_pointer, int array_size) {
+    // Might need a mutex lock here!!! 
+}
+
 float update_velocity(mpu9250_measurement_t *smoothed_acceleration, int delta_t_msec, float previous_velocity) {
     // TODO: Add an enum and switch/case statements for easy access selection
     // For now just hardcoded to z-axis
@@ -170,10 +174,16 @@ int main(void) {
     display_write("Hello, Human!", DISPLAY_LINE_0);
     printf("Display initialized!\n");
 
+    char display_buf[16] = {0};
+    //snprintf(buf, 16, "%u", i);
+
 
     // Allocate arrays for mpu9250 measurements
     mpu9250_measurement_t acc_array[16] = {0};
     mpu9250_measurement_t avg_output = {0};
+
+    // Smooth over 1 sec of data
+    float smoother_array[200] = {0}
 
     uint16_t measurement_array_counter = 0;
 
@@ -223,7 +233,7 @@ int main(void) {
         // NOTE: I'm assuing an RTC prescalar of 0 & clock freq of 32768Hz!!!
         float time_diff_msec = ((float)time_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
 
-        
+
         if (read_accel) {
             read_accel = false;
             mpu9250_read_accelerometer_pointer(&ax, &ay, &az);
@@ -248,14 +258,17 @@ int main(void) {
         lin_ax = ax + a31;
         lin_ay = ay + a32;
         lin_az = az - a33;
+
         if ((print_counter % 1000) == 0) {
 
             // Various things you can print out to RTT. Uncomment as needed
             //printf("X: %f\nY: %f\nZ: %f\n\n", ax, ay, az); // Raw accel
             //printf("X: %f\nY: %f\nZ: %f\n\n", lin_ax, lin_ay, lin_az); // Accel corrected for gravity and oreitnation
-            printf("Pitch: %f\nYaw: %f\n Roll: %f\n\n", pitch, yaw, roll); // Pitch, yaw, and roll.
+            //printf("Pitch: %f\nYaw: %f\n Roll: %f\n\n", pitch, yaw, roll); // Pitch, yaw, and roll.
+            snprintf(display_buf, 16, "Yaw: %f", yaw);
+            display_write(display_buf, DISPLAY_LINE_0);
         }
-        print_counter+=1;
+        print_counter += 1;
         previous_time = current_time;
     }
 }
