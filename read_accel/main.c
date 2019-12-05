@@ -22,10 +22,13 @@
 #include "display.h"
 #include "mpu9250.h"
 #include "quaternionFilters.h"
+#include "grove_display.h"
 
 // Math constants
 
 #define PI 3.14159265359
+
+#define smooth_num 300
 
 // LED array on NRF (4 total)
 // #define NRF_LED0 NRF_GPIO_PIN_MAP(0,17)
@@ -177,20 +180,22 @@ int main(void) {
     display_init(&spi_instance);
     display_write("Hello, Human!", DISPLAY_LINE_0);
     printf("Display initialized!\n");
-
     char display_buf[16] = {0};
-    //snprintf(buf, 16, "%u", i);
+
+    init_tm1637_display(0);
+    init_tm1637_display(1);
 
 
     // Allocate arrays for mpu9250 measurements
     mpu9250_measurement_t acc_array[16] = {0};
     mpu9250_measurement_t avg_output = {0};
-
+    uint16_t measurement_array_counter = 0;
+        
     // Smooth over 1 sec of data
-    float smoother_array[400] = {0};
+    float smoother_array[smooth_num] = {0};
     uint16_t smoother_array_index = 0;
 
-    uint16_t measurement_array_counter = 0;
+
 
     // Bike kinematics
     float current_velocity = 0;
@@ -267,7 +272,7 @@ int main(void) {
 
         // Put variable into our smoother array
 
-        smoother_array[smoother_array_index % 400] = yaw;
+        smoother_array[smoother_array_index % smooth_num] = roll;
         smoother_array_index++;
 
         if ((print_counter % 100) == 0) {
@@ -278,8 +283,25 @@ int main(void) {
             //printf("Pitch: %f\nYaw: %f\n Roll: %f\n\n", pitch, yaw, roll); // Pitch, yaw, and roll.
             // snprintf(display_buf, 16, "Yaw: %f", yaw);
             // display_write(display_buf, DISPLAY_LINE_0);
-            printf("Smooth yaw: %f\n", sliding_averager_float_array(smoother_array, 400));
+            //printf("Smooth roll: %f\n", sliding_averager_float_array(smoother_array, smooth_num));
         }
+        float smoothed_roll = sliding_averager_float_array(smoother_array, smooth_num);
+        displayNum((int)smoothed_roll, 0, false, 1);
+        if (smoothed_roll > 2.0) {
+            // snprintf(display_buf, 16, "----A");
+            // display_write(display_buf, DISPLAY_LINE_0);
+            displayStr("---A", 0);
+        } else if (smoothed_roll < -2.0) {
+            // snprintf(display_buf, 16, "A----");
+            // display_write(display_buf, DISPLAY_LINE_0);
+            displayStr("A---", 0);
+        } else {
+            // snprintf(display_buf, 16, "A---A");
+            // display_write(display_buf, DISPLAY_LINE_0);
+            displayStr("A--A", 0);
+
+        }
+
         previous_time = current_time;
     }
 }
