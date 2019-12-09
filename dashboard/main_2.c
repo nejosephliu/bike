@@ -297,12 +297,16 @@ int main(void) {
         // Main FSM
         switch(current_system_state) {
         case IDLE:
+        	// Show speed and distance to rider
             break;
         case BRAKE:
+        	// Flash red
             break;
         case LEFT:
+        	// Flash Left_green
             break;
         case RIGHT:
+        	// Flash Right_green
             break;
         }
         previous_time = current_time;
