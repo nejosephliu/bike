@@ -184,7 +184,7 @@ states kinematics_state = IDLE;
 // Voice recognition state variable
 states voice_recognition_state = IDLE;
 
-// Initialize Grove voice recognition serial interface
+// Initialize Grove voice recognition serial interface??????
 
 
 
@@ -267,13 +267,13 @@ int main(void) {
     uint16_t smoother_array_index = 0;
 
     float smoothed_roll = 0;
-    float smoothed_x_aceel = 0;
+    float smoothed_x_accel = 0;
 
     while(true) {
-    	// Get current RTC tick count from hall effect timer
-    	current_time = app_timer_cnt_get();
+        // Get current RTC tick count from hall effect timer
+        current_time = app_timer_cnt_get();
         uint32_t tick_diff = app_timer_cnt_diff_compute(current_time, previous_time);
-    	float time_diff_msec = get_msecs_from_ticks(tick_diff);
+        float time_diff_msec = get_msecs_from_ticks(tick_diff);
 
         // Read the IMU if new data is available
         if (IMU_data_ready) {
@@ -281,7 +281,7 @@ int main(void) {
             read_accelerometer_pointer(&ax, &ay, &az);
             read_gyro_pointer(&gx, &gy, &gz);
             read_magnetometer_pointer(&mx, &my, &mz);
-            
+
         }
         // Run Madgwick's algorithm
         MadgwickQuaternionUpdate(q, beta, time_diff_msec, -ax, ay, az, gx * PI / 180.0f, -gy * PI / 180.0f, -gz * PI / 180.0f,  my,  -mx, mz);
@@ -308,6 +308,9 @@ int main(void) {
         smooth_roll_array[smoother_array_index % smooth_num] = roll;
         smooth_x_accel_array[smoother_array_index % smooth_num] = lin_ax;
         smoother_array_index++;
+
+        smoothed_roll = sliding_averager_float_array(smoothed_roll, smooth_num);
+        smoothed_x_accel = sliding_averager_float_array(smoothed_x_accel, smooth_num);
         // FSM update logic goes here
         // Cascade of if..else if..else statements
         // to find the ultimate current_system_state
@@ -315,16 +318,32 @@ int main(void) {
         // Main FSM
         switch(current_system_state) {
         case IDLE:
-        	// Show speed and distance to rider
+            // Show speed and distance to rider
+            //CHECK FOR BRAKING SHOULD COME FIRST!!!!
+            if (smoothed_roll > 2.0) {
+                printf("Move to flash right\n");
+                current_system_state = RIGHT;
+            } else if (smoothed_roll < -2.0) {
+                printf("Move to flash left\n");
+                current_system_state = LEFT;
+            }
             break;
         case BRAKE:
-        	// Flash red
+            // Flash red
             break;
         case LEFT:
-        	// Flash Left_green
+            // Flash Left_green
+            // Again check for breaking
+            if (smoothed_roll > -2.0) {
+                printf("Back to IDLE from LEFT\n");
+            }
             break;
         case RIGHT:
-        	// Flash Right_green
+            // Flash Right_green
+            // Again check for breaking
+            if (smoothed_roll < 2.0) {
+                printf("Back to IDLE from RIGHT\n");
+            }
             break;
         }
         previous_time = current_time;

@@ -74,7 +74,7 @@ int main(void) {
           }
         } else {
           printf("Success! %lu\n", ret);
-          printf("char: %x\n", c);
+          printf("char: %i\n", c);
           nrf_delay_ms(500);
         }
       nrf_delay_ms(50);
