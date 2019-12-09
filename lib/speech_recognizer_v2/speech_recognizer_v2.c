@@ -60,7 +60,6 @@ uint8_t read_voice_command(void) {
 	if(ret == NRF_SUCCESS) {
 		return input_number;
 	} else {
-		printf("%i\n", ret);
 		return 255;
 	}
 

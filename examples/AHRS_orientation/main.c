@@ -201,7 +201,7 @@ int main(void) {
     float current_velocity = 0;
 
     // Start the timer
-    int delta_t_msec = 1000;
+    int delta_t_msec = 5000;
 
 
     // Init timers:

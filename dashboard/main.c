@@ -26,6 +26,7 @@
 #include "grove_display.h"
 #include "IMU.h"
 #include "quaternion_filter.h"
+#include "speech_recognizer_v2.h"
 #include "si7021.h"
 #include <math.h>
 
@@ -39,10 +40,10 @@
 
 // Bike wheel radius (in centimeters)
 // I'm assuming standard road bike tires with 622mm diamteter
-#define bike_radius 31.1
+#define bike_radius .4
 
-// Arc length in centimeters per each 1/4 turn of the bike wheel
-#define arc_length (bike_radius*PI)/180.0
+// Arc length in centimeters per each 1/2 turn of the bike wheel
+#define arc_length bike_radius*PI // *2/2
 
 // GPIO defines
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
@@ -82,8 +83,10 @@ APP_TIMER_DEF(hall_velocity_calc);
 volatile float distance_rotated = 0;
 
 void hall_effect_timer_callback(void *p_context) {
-    distance_rotated = (float)hall_revolutions * arc_length;
+    distance_rotated += ((float)hall_revolutions * arc_length);
     //printf("Hall Revs: %i\n", hall_revolutions);
+    //displayNum((int)distance_rotated, 0, false, 0);
+    displayNum((float)hall_revolutions * arc_length * 2.237, 2, false, 0);
     //printf("Bike wheel distance: %f\n", distance_rotated);
     hall_revolutions = 0;
 }
@@ -186,10 +189,6 @@ float get_msecs_from_ticks(uint32_t tick_diff) {
 // Create TWI manager instance to read the IMU
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
-// Initialize Grove voice recognition serial interface??????
-
-
-
 int main(void) {
     ret_code_t error_code = NRF_SUCCESS; // Don't need to redeclare error_code again
 
@@ -207,7 +206,6 @@ int main(void) {
     init_tm1637_display(1);
     clearDisplay(0);
     clearDisplay(1);
-
 
     // Initialize GPIO devices and timers in preparation for run:
 
@@ -234,6 +232,7 @@ int main(void) {
     error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
     APP_ERROR_CHECK(error_code);
     nrf_delay_ms(50);
+
     // Start the IMU and run calibration
     start_IMU_i2c_connection(&twi_mngr_instance);
     calibrate_gyro_and_accel();
@@ -241,6 +240,7 @@ int main(void) {
     // The mag values will have to be hardcoded for final implementation
     // Mag cal is very slow...
     displayStr("CAL", 1);
+    displayStr("CAA", 0);
     calibrate_magnetometer();
     displayStr("DONE", 1);
     debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
@@ -250,6 +250,11 @@ int main(void) {
     // led_init(numLEDs, LED_PWM); // assume success
     // pattern_init(numLEDs);      // assume success
     // pattern_start();
+
+
+    // Initialize the Grove speech recognizer
+
+    //start_grove_speech_recognizer();
 
     // Init variables for AHRS integration time
     uint32_t current_time = 0;
@@ -327,10 +332,10 @@ int main(void) {
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 displayStr("A--A", 1);
-                if (smoothed_roll > 4.0) {
+                if (smoothed_roll > 5.0) {
                     // printf("Move to flash right\n");
                     current_system_state = RIGHT;
-                } else if (smoothed_roll < -4.0) {
+                } else if (smoothed_roll < -5.0) {
                     // printf("Move to flash left\n");
                     current_system_state = LEFT;
                 }
@@ -358,7 +363,6 @@ int main(void) {
                 break;
             }
         }
-        // Main FSM
 
         previous_time = current_time;
     }
