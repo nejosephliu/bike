@@ -260,6 +260,7 @@ int main(void) {
     	current_time = app_timer_cnt_get();
         uint32_t tick_diff = app_timer_cnt_diff_compute(current_time, previous_time);
     	float time_diff_msec = get_msecs_from_ticks(tick_diff);
+
         // Read the IMU if new data is available
         if (IMU_data_ready) {
             IMU_data_ready = false;
@@ -289,6 +290,10 @@ int main(void) {
         lin_ay = ay + a32;
         lin_az = az - a33;
 
+        // FSM update logic goes here
+        // Cascade of if..else if..else statements
+        // to find the ultimate current_system_state
+
         // Main FSM
         switch(current_system_state) {
         case IDLE:
@@ -300,6 +305,7 @@ int main(void) {
         case RIGHT:
             break;
         }
+        previous_time = current_time;
     }
 }
 
