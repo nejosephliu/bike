@@ -217,7 +217,7 @@ int main(void) {
 
     // The mag values will have to be hardcoded for final implementation
     // Mag cal is very slow...
-    //calibrate_magnetometer();
+    calibrate_magnetometer();
     debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the grove displays
@@ -245,10 +245,10 @@ int main(void) {
     APP_ERROR_CHECK(error_code);
 
     // Initialize the LEDs
-    uint16_t numLEDs = 8;
-    led_init(numLEDs, LED_PWM); // assume success
-    pattern_init(numLEDs);      // assume success
-    pattern_start();
+    // uint16_t numLEDs = 8;
+    // led_init(numLEDs, LED_PWM); // assume success
+    // pattern_init(numLEDs);      // assume success
+    // pattern_start();
 
     // Init variables for AHRS integration time
     uint32_t current_time = 0;
@@ -277,10 +277,11 @@ int main(void) {
         // Get current RTC tick count from hall effect timer
         current_time = app_timer_cnt_get();
         uint32_t tick_diff = app_timer_cnt_diff_compute(current_time, previous_time);
-        float time_diff_msec = get_msecs_from_ticks(tick_diff);
+        float time_diff_msec = ((float)tick_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
 
         // Read the IMU if new data is available
         if (IMU_data_ready) {
+            printf("IMU was read!\n");
             IMU_data_ready = false;
             read_accelerometer_pointer(&ax, &ay, &az);
             read_gyro_pointer(&gx, &gy, &gz);
@@ -318,7 +319,9 @@ int main(void) {
         // FSM update logic goes here
         // Cascade of if..else if..else statements
         // to find the ultimate current_system_state
-
+        printf("smoothed_roll: %f\n", roll);
+        printf("raw mX: %f\n", mx);
+        printf("Time diff: %f\n", time_diff_msec);
         // Main FSM
         switch(current_system_state) {
         case IDLE:
