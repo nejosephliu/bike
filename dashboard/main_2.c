@@ -36,6 +36,13 @@
 // Define Pi
 #define PI 3.14159265359
 
+// Bike wheel radius (in centimeters)
+// I'm assuming standard road bike tires with 622mm diamteter
+#define bike_radius 31.1
+
+// Arc length in centimeters per each 1/4 turn of the bike wheel
+#define arc_length (bike_radius*PI)/180.0
+
 // GPIO defines
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
 
@@ -62,11 +69,11 @@ volatile int hall_revolutions = 0;
 APP_TIMER_DEF(hall_velocity_calc);
 
 float hall_effect_timer_callback(void *p_context) {
-    // Code to get velocity
-    // For debug purposes:
+    float distance_rotated = (float)hall_revolutions * arc_length;
     printf("Hall Revs: %i\n", hall_revolutions);
+    printf("Bike wheel distance: %f\n", distance_rotated);
     hall_revolutions = 0;
-    return 0.0f; // return velocity (as float)
+    return distance_rotated; // return velocity (as float)
 }
 
 void start_lfclock(void) {
@@ -170,11 +177,16 @@ NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 // Main FSM state variable
 states current_system_state = IDLE;
 
+// NOTE SURE WHETHER WE NEED THESE LAST TWO STATE VARIABLES!!!
 // Kinematics state variable
 states kinematics_state = IDLE;
 
 // Voice recognition state variable
 states voice_recognition_state = IDLE;
+
+// Initialize Grove voice recognition serial interface
+
+
 
 int main(void) {
     ret_code_t error_code = NRF_SUCCESS; // Don't need to redeclare error_code again
@@ -201,7 +213,7 @@ int main(void) {
     // The mag values will have to be hardcoded for final implementation
     // Mag cal is very slow...
     calibrate_magnetometer();
-    debug(); // Disable in GM build
+    debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the grove displays
     init_tm1637_display(0);
@@ -254,6 +266,8 @@ int main(void) {
     float smooth_x_accel_array[smooth_num] = {0};
     uint16_t smoother_array_index = 0;
 
+    float smoothed_roll = 0;
+    float smoothed_x_aceel = 0;
 
     while(true) {
     	// Get current RTC tick count from hall effect timer
@@ -290,6 +304,10 @@ int main(void) {
         lin_ay = ay + a32;
         lin_az = az - a33;
 
+        // Input AHRS output into smoothing array
+        smooth_roll_array[smoother_array_index % smooth_num] = roll;
+        smooth_x_accel_array[smoother_array_index % smooth_num] = lin_ax;
+        smoother_array_index++;
         // FSM update logic goes here
         // Cascade of if..else if..else statements
         // to find the ultimate current_system_state
