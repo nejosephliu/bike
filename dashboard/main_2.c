@@ -45,19 +45,22 @@
 // Put the buttons into an array
 static uint8_t BUTTONS[3] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2};
 
+// Hall sensor pin
+#define HALL_PIN NRF_GPIO_PIN_MAP(0, 11)
+
 /*For now, let's create a single timer that we will use to
 get the velocity from the Hall sensor and get the delta-T for the
 AHRS algo.
 */
 
 // Hall effect variables
-volatile int hall_effect_mag_detects = 0;
+volatile int hall_revolutions = 0;
 
 APP_TIMER_DEF(hall_velocity_calc);
 
 float hall_effect_timer_callback(void *p_context) {
     // Code to get velocity
-    hall_effect_mag_detects = 0;
+    hall_revolutions = 0;
     // return velocity (as float)
 }
 
@@ -74,6 +77,17 @@ void init_hall_effect_timer(void) {
     APP_ERROR_CHECK(error_code);
 }
 
+// Setup hall effect sensor interrupt callback
+void setup_Hall_GPIO_interrupt(void) {
+    nrfx_gpiote_in_config_t hall_config = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
+    ret_code_t error_code = nrfx_gpiote_in_init(HALL_PIN, &hall_config, hall_effect_GPIO_callback);
+    APP_ERROR_CHECK(error_code);
+    nrfx_gpiote_in_event_enable(HALL_PIN, true);
+}
+
+void hall_effect_GPIO_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+    hall_revolutions += 1;
+}
 
 volatile bool IMU_data_ready = false;
 // IMU interrupt callback function
@@ -83,6 +97,7 @@ void IMU_interrupt_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 
 // Function to setup read of mpu9250 on an interrupt
 void setup_IMU_interrupt(void) {
+    ret_code_t error_code;
     nrfx_gpiote_in_config_t IMU_int_config = NRFX_GPIOTE_CONFIG_IN_SENSE_LOTOHI(true);
     error_code = nrfx_gpiote_in_init(BUCKLER_IMU_INTERUPT, &IMU_int_config, IMU_interrupt_callback);
     APP_ERROR_CHECK(error_code);
@@ -90,10 +105,62 @@ void setup_IMU_interrupt(void) {
 }
 
 // Function to setup the 3 state buttons as input pins
+void setup_buttons(void) {
+    ret_code_t error_code;
 
+    // Do not use high accuracy per Leland
+    nrfx_gpiote_in_config_t button_config = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(false);
+    button_config.pull = NRF_GPIO_PIN_PULLUP;
+
+    for (int i = 0; i < 3; i++) {
+        error_code = nrfx_gpiote_in_init(BUTTONS[i], &button_config, button_callback);
+        APP_ERROR_CHECK(error_code);
+        nrfx_gpiote_in_event_enable(BUTTONS[i], true);
+    }
+}
 
 // Callback function for 3 buttons to check state
-
+// FOR NOW WE CONSIDER THE BUTTON CALLBACK TO BE A STAND IN
+// FOR THE VOICE SENSOR!!
+void button_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+    switch (pin) {
+    case NRF_BUTTON0:
+        button_next_state = IDLE;
+        break;
+    case NRF_BUTTON1:
+        button_next_state = LEFT;
+        break;
+    case NRF_BUTTON2:
+        button_next_state = RIGHT;
+        break;
+    case NRF_BUTTON3:
+        button_next_state = BRAKE;
+        break;
+    }
+}
 // Create TWI manager instance to read the IMU
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
+
+// Main FSM state variable
+states current_system_state = IDLE;
+
+// Kinematics state variable
+states kinematics_state = IDLE;
+
+// Voice recognition state variable
+states voice_recognition_state = IDLE;
+
+int main(void) {
+    ret_code_t error_code = NRF_SUCCESS; // Don't need to redeclare error_code again
+
+    // initialize GPIO driver
+    if (!nrfx_gpiote_is_init()) {
+        error_code = nrfx_gpiote_init();
+    }
+    APP_ERROR_CHECK(error_code);
+
+    while(true) {
+
+    }
+}
 
