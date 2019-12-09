@@ -38,7 +38,7 @@
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
 
 // Buttons to select state instead of the voice detector (for now)
-#define NRF_BUTTON0 NRF_GPIO_PIN_MAP(0, 13) // State = stop
+#define NRF_BUTTON0 NRF_GPIO_PIN_MAP(0, 13) // State = brake
 #define NRF_BUTTON1 NRF_GPIO_PIN_MAP(0, 14) // State = left
 #define NRF_BUTTON2 NRF_GPIO_PIN_MAP(0, 15) // State = right
 
@@ -60,18 +60,22 @@ APP_TIMER_DEF(hall_velocity_calc);
 
 float hall_effect_timer_callback(void *p_context) {
     // Code to get velocity
+    // For debug purposes:
+    printf("Hall Revs: %i\n", hall_revolutions);
     hall_revolutions = 0;
-    // return velocity (as float)
+    return 0.0f; // return velocity (as float)
+}
+
+void start_lfclock(void) {
+	// Enable low frequency clock for timers
+    // Do this *once* in the entire program
+	ret_code_t error_code = nrf_drv_clock_init();
+    APP_ERROR_CHECK(error_code);
+    nrf_drv_clock_lfclk_request(NULL);
 }
 
 void init_hall_effect_timer(void) {
-    // Enalbe low frequency clock for timers
-    // Do this *once* in the entire program
-    ret_code_t error_code = nrf_drv_clock_init();
-    APP_ERROR_CHECK(error_code);
-    nrf_drv_clock_lfclk_request(NULL);
-
-    error_code = app_timer_create(&hall_velocity_calc,
+    ret_code_t error_code = app_timer_create(&hall_velocity_calc,
                                   APP_TIMER_MODE_REPEATED,
                                   hall_effect_timer_callback);
     APP_ERROR_CHECK(error_code);
@@ -122,22 +126,26 @@ void setup_buttons(void) {
 // Callback function for 3 buttons to check state
 // FOR NOW WE CONSIDER THE BUTTON CALLBACK TO BE A STAND IN
 // FOR THE VOICE SENSOR!!
+// I removed the button for state IDLE; this could be our default state
+// that the system falls back on if need be
 void button_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
     switch (pin) {
     case NRF_BUTTON0:
-        button_next_state = IDLE;
+        voice_recognition_state = BRAKE;
         break;
     case NRF_BUTTON1:
-        button_next_state = LEFT;
+        voice_recognition_state = LEFT;
         break;
     case NRF_BUTTON2:
-        button_next_state = RIGHT;
-        break;
-    case NRF_BUTTON3:
-        button_next_state = BRAKE;
+        voice_recognition_state = RIGHT;
         break;
     }
 }
+
+// Function for smoothing accel data and arrays to hold the smoothed data... 
+
+// Func to convert timer ticks to milliseconds...
+
 // Create TWI manager instance to read the IMU
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
@@ -159,8 +167,35 @@ int main(void) {
     }
     APP_ERROR_CHECK(error_code);
 
-    while(true) {
+    // Initialize GPIO devices and timers:
 
+    // Start low frequency clock
+    start_lfclock();
+
+    // Init buttons
+    setup_buttons();
+
+    // Setup IMU interrupt
+    setup_IMU_interrupt();
+
+    // Setup hall effect sensor
+    setup_Hall_GPIO_interrupt();
+
+    // start hall timer
+
+    while(true) {
+        // AHRS stuff goes here
+        // Main FSM
+        switch(current_system_state) {
+        case IDLE:
+            break;
+        case BRAKE:
+            break;
+        case LEFT:
+            break;
+        case RIGHT:
+            break;
+        }
     }
 }
 
