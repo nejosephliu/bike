@@ -202,24 +202,6 @@ int main(void) {
     }
     APP_ERROR_CHECK(error_code);
 
-    // Initialize I2C
-
-    nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
-    i2c_config.scl = BUCKLER_SENSORS_SCL; // From Kobuki code
-    i2c_config.sda = BUCKLER_SENSORS_SDA;
-    i2c_config.frequency = NRF_TWIM_FREQ_400K; // Changed to 400k to match the datasheet for MPU9250
-    error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
-    APP_ERROR_CHECK(error_code);
-
-    // Start the IMU and run calibration
-    start_IMU_i2c_connection(&twi_mngr_instance);
-    calibrate_gyro_and_accel();
-
-    // The mag values will have to be hardcoded for final implementation
-    // Mag cal is very slow...
-    calibrate_magnetometer();
-    debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
-
     // Initialize the grove displays
     init_tm1637_display(0);
     init_tm1637_display(1);
@@ -228,7 +210,6 @@ int main(void) {
 
 
     // Initialize GPIO devices and timers in preparation for run:
-
 
     // Init buttons
     setup_buttons();
@@ -243,6 +224,26 @@ int main(void) {
     init_hall_effect_timer();
     error_code = app_timer_start(hall_velocity_calc, APP_TIMER_TICKS(HALL_EFFECT_TIME_MS), NULL);
     APP_ERROR_CHECK(error_code);
+
+    // Initialize I2C
+
+    nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
+    i2c_config.scl = BUCKLER_SENSORS_SCL; // From Kobuki code
+    i2c_config.sda = BUCKLER_SENSORS_SDA;
+    i2c_config.frequency = NRF_TWIM_FREQ_400K; // Changed to 400k to match the datasheet for MPU9250
+    error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
+    APP_ERROR_CHECK(error_code);
+    nrf_delay_ms(50);
+    // Start the IMU and run calibration
+    start_IMU_i2c_connection(&twi_mngr_instance);
+    calibrate_gyro_and_accel();
+
+    // The mag values will have to be hardcoded for final implementation
+    // Mag cal is very slow...
+    displayStr("CAL", 1);
+    calibrate_magnetometer();
+    displayStr("DONE", 1);
+    debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the LEDs
     // uint16_t numLEDs = 8;
@@ -273,6 +274,7 @@ int main(void) {
     float smoothed_roll = 0;
     float smoothed_x_accel = 0;
 
+    uint16_t print_counter = 0;
     while(true) {
         // Get current RTC tick count from hall effect timer
         current_time = app_timer_cnt_get();
@@ -281,12 +283,11 @@ int main(void) {
 
         // Read the IMU if new data is available
         if (IMU_data_ready) {
-            printf("IMU was read!\n");
             IMU_data_ready = false;
             read_accelerometer_pointer(&ax, &ay, &az);
             read_gyro_pointer(&gx, &gy, &gz);
             read_magnetometer_pointer(&mx, &my, &mz);
-
+            print_counter++;
         }
         // Run Madgwick's algorithm
         MadgwickQuaternionUpdate(q, beta, time_diff_msec, -ax, ay, az, gx * PI / 180.0f, -gy * PI / 180.0f, -gz * PI / 180.0f,  my,  -mx, mz);
@@ -319,42 +320,46 @@ int main(void) {
         // FSM update logic goes here
         // Cascade of if..else if..else statements
         // to find the ultimate current_system_state
-        printf("smoothed_roll: %f\n", roll);
-        printf("raw mX: %f\n", mx);
-        printf("Time diff: %f\n", time_diff_msec);
-        // Main FSM
-        switch(current_system_state) {
-        case IDLE:
-            // Show speed and distance to rider
-            //CHECK FOR BRAKING SHOULD COME FIRST!!!!
-            if (smoothed_roll > 2.0) {
-                printf("Move to flash right\n");
-                current_system_state = RIGHT;
-            } else if (smoothed_roll < -2.0) {
-                printf("Move to flash left\n");
-                current_system_state = LEFT;
+        if ((print_counter % 100) == 0) {
+            printf("Smoothed Roll: %f\n", smoothed_roll);
+            switch(current_system_state) {
+            case IDLE:
+                // Show speed and distance to rider
+                //CHECK FOR BRAKING SHOULD COME FIRST!!!!
+                displayStr("A--A", 1);
+                if (smoothed_roll > 4.0) {
+                    // printf("Move to flash right\n");
+                    current_system_state = RIGHT;
+                } else if (smoothed_roll < -4.0) {
+                    // printf("Move to flash left\n");
+                    current_system_state = LEFT;
+                }
+                break;
+            case BRAKE:
+                // Flash red
+                break;
+            case LEFT:
+                // Flash Left_green
+                // Again check for breaking
+                displayStr("A---", 1);
+                if (smoothed_roll > 1.0) {
+                    // printf("Back to IDLE from LEFT\n");
+                    current_system_state = IDLE;
+                }
+                break;
+            case RIGHT:
+                // Flash Right_green
+                // Again check for breaking
+                displayStr("---A", 1);
+                if (smoothed_roll < -1.0) {
+                    // printf("Back to IDLE from RIGHT\n");
+                    current_system_state = IDLE;
+                }
+                break;
             }
-            break;
-        case BRAKE:
-            // Flash red
-            break;
-        case LEFT:
-            // Flash Left_green
-            // Again check for breaking
-            if (smoothed_roll > -2.0) {
-                printf("Back to IDLE from LEFT\n");
-                current_system_state = IDLE;
-            }
-            break;
-        case RIGHT:
-            // Flash Right_green
-            // Again check for breaking
-            if (smoothed_roll < 2.0) {
-                printf("Back to IDLE from RIGHT\n");
-                current_system_state = IDLE;
-            }
-            break;
         }
+        // Main FSM
+
         previous_time = current_time;
     }
 }

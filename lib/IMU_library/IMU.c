@@ -251,7 +251,7 @@ void calibrate_gyro_and_accel(void) {
     nrf_delay_ms(100);
 
     // configure magnetometer, enable continuous measurement mode (8 Hz)
-    i2c_reg_write(MAG_ADDRESS, AK8963_CNTL1, 0x02);
+    i2c_reg_write(MAG_ADDRESS, AK8963_CNTL1, 0x16);
 
 }
 
@@ -369,7 +369,7 @@ void start_IMU_i2c_connection(const nrf_twi_mngr_t *i2c) {
     nrf_delay_ms(100);
 
     // configure magnetometer, enable continuous measurement mode (8 Hz)
-    i2c_reg_write(MAG_ADDRESS, AK8963_CNTL1, 0x02);
+    i2c_reg_write(MAG_ADDRESS, AK8963_CNTL1, 0x16);
 }
 
 void read_accelerometer_pointer(float *ax, float *ay, float *az) {
