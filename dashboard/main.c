@@ -294,6 +294,7 @@ int main(void) {
             read_magnetometer_pointer(&mx, &my, &mz);
             print_counter++;
         }
+        
         // Run Madgwick's algorithm
         MadgwickQuaternionUpdate(q, beta, time_diff_msec, -ax, ay, az, gx * PI / 180.0f, -gy * PI / 180.0f, -gz * PI / 180.0f,  my,  -mx, mz);
 
