@@ -119,7 +119,9 @@ void pattern_stop() {
 
 // Update FSM state to change LED pattern output
 void pattern_update_state(states new_state) {
-  state = new_state;
-  iteration = 0;
+  if (new_state != state) {
+	state = new_state;
+	iteration = 0;
+  }
 }
 
