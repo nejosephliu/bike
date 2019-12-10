@@ -241,8 +241,9 @@ int main(void) {
     // Mag cal is very slow...
     displayStr("CAL", 1);
     displayStr("CAA", 0);
-    calibrate_magnetometer();
+    //calibrate_magnetometer();
     displayStr("DONE", 1);
+    restore_calibrated_magnetometer_values();
     debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the LEDs
@@ -348,18 +349,22 @@ int main(void) {
                 // Flash Left_green
                 // Again check for breaking
                 displayStr("A---", 1);
-                if (smoothed_roll > 1.0) {
+                if (smoothed_roll > 0.0) {
                     // printf("Back to IDLE from LEFT\n");
                     current_system_state = IDLE;
+                } else if (smoothed_roll > 5.0){
+                    current_system_state = RIGHT;
                 }
                 break;
             case RIGHT:
                 // Flash Right_green
                 // Again check for breaking
                 displayStr("---A", 1);
-                if (smoothed_roll < -1.0) {
+                if (smoothed_roll < 0.0) {
                     // printf("Back to IDLE from RIGHT\n");
                     current_system_state = IDLE;
+                } else if (smoothed_roll < -5.0){
+                    current_system_state = LEFT;
                 }
                 break;
             }
