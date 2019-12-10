@@ -16,8 +16,7 @@
 
 // Timer includes
 #include "app_timer.h"
-#include "nrf_drv_clock.h"
-
+#include "nrfx_clock.h"
 
 // Project includes
 #include "states.h"
@@ -91,12 +90,18 @@ void hall_effect_timer_callback(void *p_context) {
     hall_revolutions = 0;
 }
 
+// General clock callback (not used)
+static void clock_handler(nrfx_clock_evt_type_t event) {
+}
+
 void start_lfclock(void) {
     // Enable low frequency clock for timers
     // Do this *once* in the entire program
-    ret_code_t error_code = nrf_drv_clock_init();
+    ret_code_t error_code = nrfx_clock_init(&clock_handler);
     APP_ERROR_CHECK(error_code);
-    nrf_drv_clock_lfclk_request(NULL);
+	if (!nrfx_clock_lfclk_is_running()) {
+	  nrfx_clock_lfclk_start();
+	}
 }
 
 void init_hall_effect_timer(void) {
@@ -247,10 +252,10 @@ int main(void) {
     debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the LEDs
-    // uint16_t numLEDs = 8;
-    // led_init(numLEDs, LED_PWM); // assume success
-    // pattern_init(numLEDs);      // assume success
-    // pattern_start();
+    uint16_t numLEDs = 8;
+    led_init(numLEDs, LED_PWM); // assume success
+    pattern_init(numLEDs);      // assume success
+    pattern_start();
 
 
     // Initialize the Grove speech recognizer
@@ -384,6 +389,7 @@ int main(void) {
                 }
                 break;
             }
+			pattern_update_state(current_system_state);
         }
 
         previous_time = current_time;
