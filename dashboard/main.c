@@ -99,9 +99,9 @@ void start_lfclock(void) {
     // Do this *once* in the entire program
     ret_code_t error_code = nrfx_clock_init(&clock_handler);
     APP_ERROR_CHECK(error_code);
-	if (!nrfx_clock_lfclk_is_running()) {
-	  nrfx_clock_lfclk_start();
-	}
+    if (!nrfx_clock_lfclk_is_running()) {
+        nrfx_clock_lfclk_start();
+    }
 }
 
 void init_hall_effect_timer(void) {
@@ -259,7 +259,6 @@ int main(void) {
 
 
     // Initialize the Grove speech recognizer
-
     speech_init();
 
     // Init variables for AHRS integration time
@@ -285,7 +284,12 @@ int main(void) {
     float smoothed_roll = 0;
     float smoothed_lin_y_accel = 0;
 
-    uint16_t print_counter = 0;
+    uint16_t IMU_read_counter = 0;
+
+    bool turn_locked = false;
+    uint32_t speech_sensor_triggered_time = 0;
+    float speech_sensor_triggered_time_diff = 0;
+
     while(true) {
         // Get current RTC tick count from hall effect timer
         current_time = app_timer_cnt_get();
@@ -298,7 +302,7 @@ int main(void) {
             read_accelerometer_pointer(&ax, &ay, &az);
             read_gyro_pointer(&gx, &gy, &gz);
             read_magnetometer_pointer(&mx, &my, &mz);
-            print_counter++;
+            IMU_read_counter++;
         }
 
         uint8_t speech_input = speech_read();
@@ -343,53 +347,91 @@ int main(void) {
 
         smoothed_roll = sliding_averager_float_array(smooth_roll_array, smooth_num);
         smoothed_lin_y_accel = sliding_averager_float_array(smooth_lin_y_accel_array, smooth_num);
-        // FSM update logic goes here
-        // Cascade of if..else if..else statements
-        // to find the ultimate current_system_state
-        if ((print_counter % 100) == 0) {
-            printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
+        
+        if ((IMU_read_counter % 100) == 0) {
+            //printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
+            printf("Smoothed roll: %f\n", smoothed_roll);
             switch(current_system_state) {
             case IDLE:
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 displayStr("A--A", 1);
-                if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {
-                    // printf("Move to flash right\n");
+                if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {                
+                    speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = RIGHT;
                 } else if ((smoothed_roll < -5.0) | (voice_recognition_state == LEFT)) {
-                    // printf("Move to flash left\n");
+                    speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = LEFT;
                 } else if (voice_recognition_state == BRAKE) {
+                    speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = BRAKE;
                 }
                 break;
+
             case BRAKE:
                 // Flash red
                 break;
+
             case LEFT:
                 // Flash Left_green
                 // Again check for breaking
                 displayStr("A---", 1);
-                if (smoothed_roll > 0.0) {
-                    // printf("Back to IDLE from LEFT\n");
+                if (smoothed_roll < -5.0) {
+                    turn_locked = true;
+                }
+
+                speech_sensor_triggered_time_diff = get_msecs_from_ticks(app_timer_cnt_diff_compute(app_timer_cnt_get(), speech_sensor_triggered_time));
+
+                if ((voice_recognition_state == LEFT) && (turn_locked == false) && speech_sensor_triggered_time_diff < 10000.0) {
+                    break;
+                } else if ((voice_recognition_state == LEFT) && (turn_locked == false) && speech_sensor_triggered_time_diff > 10000.0) {
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
                     current_system_state = IDLE;
-                } else if (smoothed_roll > 5.0) {
+                    break;
+                }
+                if (smoothed_roll > 5.0) {
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
                     current_system_state = RIGHT;
+                } else if (smoothed_roll > 0.0) { // Changed hysteresis for BENCH TESTING!!!
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
+                    current_system_state = IDLE;
                 }
                 break;
+
             case RIGHT:
                 // Flash Right_green
                 // Again check for breaking
-                displayStr("---A", 1);
-                if (smoothed_roll < 0.0) {
-                    // printf("Back to IDLE from RIGHT\n");
+                displayStr("A---", 1);
+                if (smoothed_roll > 5.0) {
+                    printf("LOCKED RIGHT!\n");
+                    turn_locked = true;
+                }
+
+                speech_sensor_triggered_time_diff = get_msecs_from_ticks(app_timer_cnt_diff_compute(app_timer_cnt_get(), speech_sensor_triggered_time));
+
+                if ((voice_recognition_state == RIGHT) && (turn_locked == false) && speech_sensor_triggered_time_diff < 10000.0) {
+                    break;
+                } else if ((voice_recognition_state == RIGHT) && (turn_locked == false) && speech_sensor_triggered_time_diff > 10000.0) {
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
                     current_system_state = IDLE;
-                } else if (smoothed_roll < -5.0) {
+                    break;
+                }
+                if (smoothed_roll < -5.0) {
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
                     current_system_state = LEFT;
+                } else if (smoothed_roll < 0.0) { // Changed hysteresis for BENCH TESTING!!!
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
+                    current_system_state = IDLE;
                 }
                 break;
             }
-			pattern_update_state(current_system_state);
+            pattern_update_state(current_system_state);
         }
 
         previous_time = current_time;
