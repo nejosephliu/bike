@@ -174,7 +174,7 @@ float sliding_averager_float_array(float *input_array_pointer, int array_size) {
     for (int i = 0; i < array_size; i++) {
         output += input_array_pointer[i];
     }
-    return output / array_size;
+    return output / (float)array_size;
 }
 // Function to convert timer ticks to milliseconds
 
