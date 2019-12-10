@@ -255,7 +255,7 @@ int main(void) {
 
     // Initialize the Grove speech recognizer
 
-    //start_grove_speech_recognizer();
+    speech_init();
 
     // Init variables for AHRS integration time
     uint32_t current_time = 0;
@@ -295,7 +295,21 @@ int main(void) {
             read_magnetometer_pointer(&mx, &my, &mz);
             print_counter++;
         }
-        
+
+        uint8_t speech_input = speech_read();
+
+        if (speech_input != 255) {
+            if(speech_input == 18) {
+                voice_recognition_state == BRAKE;
+            }
+            if(speech_input == 16) {
+                voice_recognition_state == LEFT;
+            }
+            if(speech_input == 17) {
+                voice_recognition_state == RIGHT;
+            }
+        }
+
         // Run Madgwick's algorithm
         MadgwickQuaternionUpdate(q, beta, time_diff_msec, -ax, ay, az, gx * PI / 180.0f, -gy * PI / 180.0f, -gz * PI / 180.0f,  my,  -mx, mz);
 
@@ -334,12 +348,14 @@ int main(void) {
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 displayStr("A--A", 1);
-                if (smoothed_roll > 5.0) {
+                if ((smoothed_roll > 5.0) | voice_recognition_state == RIGHT) {
                     // printf("Move to flash right\n");
                     current_system_state = RIGHT;
-                } else if (smoothed_roll < -5.0) {
+                } else if ((smoothed_roll < -5.0) | voice_recognition_state == LEFT) {
                     // printf("Move to flash left\n");
                     current_system_state = LEFT;
+                } else if (voice_recognition_state == BRAKE) {
+                    current_system_state = BRAKE;
                 }
                 break;
             case BRAKE:
@@ -352,7 +368,7 @@ int main(void) {
                 if (smoothed_roll > 0.0) {
                     // printf("Back to IDLE from LEFT\n");
                     current_system_state = IDLE;
-                } else if (smoothed_roll > 5.0){
+                } else if (smoothed_roll > 5.0) {
                     current_system_state = RIGHT;
                 }
                 break;
@@ -363,7 +379,7 @@ int main(void) {
                 if (smoothed_roll < 0.0) {
                     // printf("Back to IDLE from RIGHT\n");
                     current_system_state = IDLE;
-                } else if (smoothed_roll < -5.0){
+                } else if (smoothed_roll < -5.0) {
                     current_system_state = LEFT;
                 }
                 break;
