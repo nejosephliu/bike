@@ -284,7 +284,7 @@ int main(void) {
         // Get current RTC tick count from hall effect timer
         current_time = app_timer_cnt_get();
         uint32_t tick_diff = app_timer_cnt_diff_compute(current_time, previous_time);
-        float time_diff_msec = ((float)tick_diff * ((0.0 + 1.0) * 1000.0)) / 32768.0;
+        float time_diff_msec = get_msecs_from_ticks(tick_diff);
 
         // Read the IMU if new data is available
         if (IMU_data_ready) {
