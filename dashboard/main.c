@@ -60,13 +60,10 @@ static uint8_t BUTTONS[3] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2};
 
 // Main FSM state variable
 states current_system_state = IDLE;
-
-// NOTE SURE WHETHER WE NEED THESE LAST TWO STATE VARIABLES!!!
-// Kinematics state variable
-states kinematics_state = IDLE;
-
 // Voice recognition state variable
 states voice_recognition_state = IDLE;
+// Kinematics state variable
+states kinematics_state = IDLE;///IDLE or BRAKE
 
 /*For now, let's create a single timer that we will use to
 get the velocity from the Hall sensor and get the delta-T for the
@@ -76,6 +73,8 @@ AHRS algo.
 // Hall effect variables
 #define HALL_EFFECT_TIME_MS 1000 // Update the hall values 1x/second (for now)
 volatile int hall_revolutions = 0;
+volatile int hall_revolution_history[3] = {0};
+volatile uint32_t hall_revolution_array_index = 0;
 
 APP_TIMER_DEF(hall_velocity_calc);
 
@@ -87,6 +86,8 @@ void hall_effect_timer_callback(void *p_context) {
     //displayNum((int)distance_rotated, 0, false, 0);
     displayNum((float)hall_revolutions * arc_length * 2.237, 2, false, 0);
     //printf("Bike wheel distance: %f\n", distance_rotated);
+    hall_revolution_array_index++;
+    hall_revolution_history[hall_revolution_array_index % 3] = hall_revolutions;
     hall_revolutions = 0;
 }
 
@@ -347,16 +348,24 @@ int main(void) {
 
         smoothed_roll = sliding_averager_float_array(smooth_roll_array, smooth_num);
         smoothed_lin_y_accel = sliding_averager_float_array(smooth_lin_y_accel_array, smooth_num);
-        
+
         if ((IMU_read_counter % 100) == 0) {
             //printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
             printf("Smoothed roll: %f\n", smoothed_roll);
+            __disable_irq();
+            float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 3];
+            float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 3];
+            float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 3];
+            __enable_irq();
+            float speed_diff = current_speed - ((recent_speed_1 * 0.66) + (recent_speed_2 * 0.33));
+            printf("Weighted Speed Diff: %f\n", speed_diff);
+
             switch(current_system_state) {
             case IDLE:
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 displayStr("A--A", 1);
-                if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {                
+                if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = RIGHT;
                 } else if ((smoothed_roll < -5.0) | (voice_recognition_state == LEFT)) {
