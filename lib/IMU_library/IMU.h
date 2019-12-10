@@ -28,6 +28,13 @@ Some applications may benefit from saving calibrated magnetometer values in the 
 */ 
 void calibrate_magnetometer(void);
 
+/*
+To avoid having to re-calibrate the magnetometer each time,
+we can reload calibrated values using the 
+restore_calibrated_magnetometer_values() function
+*/
+void restore_calibrated_magnetometer_values(void);
+
 // Read accel and return value in g's
 
 void read_accelerometer_pointer(float *ax, float *ay, float *az);

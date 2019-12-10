@@ -372,6 +372,20 @@ void start_IMU_i2c_connection(const nrf_twi_mngr_t *i2c) {
     i2c_reg_write(MAG_ADDRESS, AK8963_CNTL1, 0x16);
 }
 
+void restore_calibrated_magnetometer_values(void) {
+    factory_mag_sensitivity[0] = 1.214844;
+    factory_mag_sensitivity[1] = 1.218750;
+    factory_mag_sensitivity[2] = 1.175781;
+    
+    software_mag_bias[0] = 249.548782;
+    software_mag_bias[1] = -180.910721;
+    software_mag_bias[2] = -431.923737;
+    
+    software_mag_scale[0] = 1.231183;
+    software_mag_scale[1] = 1.052874;
+    software_mag_scale[2] = 0.807760;
+}
+
 void read_accelerometer_pointer(float *ax, float *ay, float *az) {
     // read values
     int16_t x_val = (((uint16_t)i2c_reg_read(MPU_ADDRESS, MPU9250_ACCEL_XOUT_H)) << 8) | i2c_reg_read(MPU_ADDRESS, MPU9250_ACCEL_XOUT_L);
@@ -379,7 +393,7 @@ void read_accelerometer_pointer(float *ax, float *ay, float *az) {
     int16_t z_val = (((uint16_t)i2c_reg_read(MPU_ADDRESS, MPU9250_ACCEL_ZOUT_H)) << 8) | i2c_reg_read(MPU_ADDRESS, MPU9250_ACCEL_ZOUT_L);
 
     // convert to g at +/- 2g resolution
-    
+
     *ax = ((float)x_val) / 16384;
     *ay = ((float)y_val) / 16384;
     *az = ((float)z_val) / 16384;
@@ -415,11 +429,11 @@ void read_magnetometer_pointer(float *mx, float *my, float *mz) {
     int16_t z_val = (((uint16_t)rx_buf[6]) << 8) | rx_buf[5];
 
     // convert to milligaus --> (1mg = 1000uT)
-    
+
     float x = x_val * ((10.0 * 4912.0) / 32760.0) * factory_mag_sensitivity[0] - software_mag_bias[0];
     float y = y_val * ((10.0 * 4912.0) / 32760.0) * factory_mag_sensitivity[1] - software_mag_bias[1];
     float z = z_val * ((10.0 * 4912.0) / 32760.0) * factory_mag_sensitivity[2] - software_mag_bias[2];
-    
+
     *mx = x * software_mag_scale[0];
     *my = y * software_mag_scale[1];
     *mz = z * software_mag_scale[2];
