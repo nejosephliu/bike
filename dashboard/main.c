@@ -279,11 +279,11 @@ int main(void) {
 
     // Arrays to hold smoothed AHRS data
     float smooth_roll_array[smooth_num] = {0};
-    float smooth_x_accel_array[smooth_num] = {0};
+    float smooth_lin_y_accel_array[smooth_num] = {0};
     uint16_t smoother_array_index = 0;
 
     float smoothed_roll = 0;
-    float smoothed_x_accel = 0;
+    float smoothed_lin_y_accel = 0;
 
     uint16_t print_counter = 0;
     while(true) {
@@ -338,25 +338,25 @@ int main(void) {
 
         // Input AHRS output into smoothing array
         smooth_roll_array[smoother_array_index % smooth_num] = roll;
-        smooth_x_accel_array[smoother_array_index % smooth_num] = lin_ax;
+        smooth_lin_y_accel_array[smoother_array_index % smooth_num] = lin_ay;
         smoother_array_index++;
 
         smoothed_roll = sliding_averager_float_array(smooth_roll_array, smooth_num);
-        smoothed_x_accel = sliding_averager_float_array(smooth_x_accel_array, smooth_num);
+        smoothed_lin_y_accel = sliding_averager_float_array(smooth_lin_y_accel_array, smooth_num);
         // FSM update logic goes here
         // Cascade of if..else if..else statements
         // to find the ultimate current_system_state
         if ((print_counter % 100) == 0) {
-            printf("Smoothed Roll: %f\n", smoothed_roll);
+            printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
             switch(current_system_state) {
             case IDLE:
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 displayStr("A--A", 1);
-                if ((smoothed_roll > 5.0) | voice_recognition_state == RIGHT) {
+                if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {
                     // printf("Move to flash right\n");
                     current_system_state = RIGHT;
-                } else if ((smoothed_roll < -5.0) | voice_recognition_state == LEFT) {
+                } else if ((smoothed_roll < -5.0) | (voice_recognition_state == LEFT)) {
                     // printf("Move to flash left\n");
                     current_system_state = LEFT;
                 } else if (voice_recognition_state == BRAKE) {
