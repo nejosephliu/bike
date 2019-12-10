@@ -300,13 +300,13 @@ int main(void) {
 
         if (speech_input != 255) {
             if(speech_input == 18) {
-                voice_recognition_state == BRAKE;
+                voice_recognition_state = BRAKE;
             }
             if(speech_input == 16) {
-                voice_recognition_state == LEFT;
+                voice_recognition_state = LEFT;
             }
             if(speech_input == 17) {
-                voice_recognition_state == RIGHT;
+                voice_recognition_state = RIGHT;
             }
         }
 
