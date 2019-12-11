@@ -415,7 +415,6 @@ int main(void) {
                 // Again check for breaking
                 displayStr("A---", 1);
                 if (smoothed_roll > 5.0) {
-                    printf("LOCKED RIGHT!\n");
                     turn_locked = true;
                 }
 
