@@ -350,15 +350,17 @@ int main(void) {
         smoothed_lin_y_accel = sliding_averager_float_array(smooth_lin_y_accel_array, smooth_num);
 
         if ((IMU_read_counter % 100) == 0) {
-            //printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
-            printf("Smoothed roll: %f\n", smoothed_roll);
+            printf("accel_y %f\n", ay);
+            printf("accel_lin_y %f\n", lin_ay);
+            printf("roll %f\n", roll);
+            printf("smoothed_roll %f\n", smoothed_roll);
             __disable_irq();
             float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 3];
             float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 3];
             float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 3];
             __enable_irq();
             float speed_diff = current_speed - ((recent_speed_1 * 0.66) + (recent_speed_2 * 0.33));
-            printf("Weighted Speed Diff: %f\n", speed_diff);
+            // printf("Weighted Speed Diff: %f\n", speed_diff);
 
             switch(current_system_state) {
             case IDLE:
