@@ -19,8 +19,8 @@ void si7021_init(const nrf_twi_mngr_t* instance) {
   i2c_config.sda = BUCKLER_SENSORS_SDA;
   i2c_config.frequency = NRF_TWIM_FREQ_100K;
   
-  error_code = nrf_twi_mngr_init(twi_mngr_instance, &i2c_config);
-  APP_ERROR_CHECK(error_code);  
+  //error_code = nrf_twi_mngr_init(twi_mngr_instance, &i2c_config);
+  //APP_ERROR_CHECK(error_code);  
 }
 
 static nrf_twi_mngr_transfer_t const reset_i2c[] = {
@@ -53,6 +53,7 @@ void si7021_reset() {
 // At 55 degrees F (Apple), temperature reading stabilized at 61 degrees F, ±1 degree F
 float read_temperature() {
   int error = nrf_twi_mngr_perform(twi_mngr_instance, NULL, send_temp_command_i2c, sizeof(send_temp_command_i2c)/sizeof(send_temp_command_i2c[0]), NULL);
+  
   if (error != 0) {
     printf("Error: %d \n", error);
   }
@@ -66,7 +67,10 @@ float read_temperature() {
   float temperature = temp;
   temperature *= 175.72;
   temperature /= 65536;
-  temperature -= 46.85;  
+  temperature -= 46.85;
+
+  // Minus 6 because of bias
+  temperature = (9.0 / 5.0) * temperature + 32.0 - 6;
 
   return temperature;
 }

@@ -37,6 +37,9 @@
 // Define Pi
 #define PI 3.14159265359
 
+// m/s to MPH
+#define MS_TO_MPH_CONVERSION_FACTOR 2.237
+
 // Bike wheel radius (in centimeters)
 // I'm assuming standard road bike tires with 622mm diamteter
 #define bike_radius .4
@@ -57,6 +60,7 @@ static uint8_t BUTTONS[3] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2};
 
 // Hall sensor pin
 #define HALL_PIN NRF_GPIO_PIN_MAP(0, 11)
+
 
 // Main FSM state variable
 states current_system_state = IDLE;
@@ -80,15 +84,49 @@ APP_TIMER_DEF(hall_velocity_calc);
 
 volatile float distance_rotated = 0;
 
+// Display Mode Enum
+#define NUM_DISPLAY_MODES 4
+#define DISPLAY_MODE_VELOCITY_MPH 0
+#define DISPLAY_MODE_DISTANCE_METERS 1
+#define DISPLAY_MODE_TEMP 2
+#define DISPLAY_MODE_HUMIDITY 3
+
+uint8_t si7021_is_init = 0;
+uint8_t display_mode = DISPLAY_MODE_VELOCITY_MPH;
+
+
+// Voice Commands Enum
+#define VOICE_COMMAND_NEXT 5
+#define VOICE_COMMAND_PREV 6
+#define VOICE_COMMAND_LEFT 16
+#define VOICE_COMMAND_RIGHT 17
+#define VOICE_COMMAND_STOP 18
+
+
 void hall_effect_timer_callback(void *p_context) {
+    // in meters
     distance_rotated += ((float)hall_revolutions * arc_length);
+    
     //printf("Hall Revs: %i\n", hall_revolutions);
     //displayNum((int)distance_rotated, 0, false, 0);
-    displayNum((float)hall_revolutions * arc_length * 2.237, 2, false, 0);
+
+    // velocity printout in MPH
+    float velocity_mph = (float)hall_revolutions * arc_length * MS_TO_MPH_CONVERSION_FACTOR;
+
+    if (display_mode == DISPLAY_MODE_VELOCITY_MPH) {
+        displayNum(velocity_mph, 2, false, 0);
+        displayStr("NNPH", 1);
+    } else if (display_mode == DISPLAY_MODE_DISTANCE_METERS) {
+        displayNum(distance_rotated, 2, false, 0);
+        displayStr("NN", 1);
+    }
+
     //printf("Bike wheel distance: %f\n", distance_rotated);
     hall_revolution_array_index++;
     hall_revolution_history[hall_revolution_array_index % 3] = hall_revolutions;
     hall_revolutions = 0;
+
+    
 }
 
 // General clock callback (not used)
@@ -239,9 +277,16 @@ int main(void) {
     APP_ERROR_CHECK(error_code);
     nrf_delay_ms(50);
 
+    
+
     // Start the IMU and run calibration
     start_IMU_i2c_connection(&twi_mngr_instance);
     calibrate_gyro_and_accel();
+
+    // Init Si7021 Temperature/Humidity Sensor
+    si7021_init(&twi_mngr_instance);
+    si7021_is_init = 1;
+    si7021_reset();
 
     // The mag values will have to be hardcoded for final implementation
     // Mag cal is very slow...
@@ -304,19 +349,28 @@ int main(void) {
             read_gyro_pointer(&gx, &gy, &gz);
             read_magnetometer_pointer(&mx, &my, &mz);
             IMU_read_counter++;
+
+
+            
         }
 
         uint8_t speech_input = speech_read();
 
         if (speech_input != 255) {
-            if(speech_input == 18) {
+            if(speech_input == VOICE_COMMAND_STOP) {
                 voice_recognition_state = BRAKE;
             }
-            if(speech_input == 16) {
+            if(speech_input == VOICE_COMMAND_LEFT) {
                 voice_recognition_state = LEFT;
             }
-            if(speech_input == 17) {
+            if(speech_input == VOICE_COMMAND_RIGHT) {
                 voice_recognition_state = RIGHT;
+            }
+            if(speech_input == VOICE_COMMAND_NEXT) {
+                display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
+            }
+            if(speech_input == VOICE_COMMAND_PREV) {
+                display_mode = (display_mode - 1) % NUM_DISPLAY_MODES;
             }
         }
 
@@ -352,6 +406,22 @@ int main(void) {
         if ((IMU_read_counter % 100) == 0) {
             //printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
             printf("Smoothed roll: %f\n", smoothed_roll);
+
+            if (si7021_is_init == 1) {
+                float temp = read_temperature();
+                float hum = read_humidity();
+                //printf("Temperature: %f\n", temp);
+                //printf("Humidity: %f\n", hum);
+
+                if (display_mode == DISPLAY_MODE_TEMP) {
+                    displayNum(temp, 0, false, 0);
+                    displayStr("*F", 1);
+                } else if (display_mode == DISPLAY_MODE_HUMIDITY) {
+                    displayNum(hum, 0, false, 0);
+                    displayStr("*Io", 1);
+                }
+            }
+
             __disable_irq();
             float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 3];
             float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 3];
@@ -364,7 +434,7 @@ int main(void) {
             case IDLE:
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
-                displayStr("A--A", 1);
+                //displayStr("A--A", 1);
                 if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = RIGHT;
@@ -384,7 +454,7 @@ int main(void) {
             case LEFT:
                 // Flash Left_green
                 // Again check for breaking
-                displayStr("A---", 1);
+                //displayStr("A---", 1);
                 if (smoothed_roll < -5.0) {
                     turn_locked = true;
                 }
@@ -413,7 +483,7 @@ int main(void) {
             case RIGHT:
                 // Flash Right_green
                 // Again check for breaking
-                displayStr("A---", 1);
+                //displayStr("A---", 1);
                 if (smoothed_roll > 5.0) {
                     turn_locked = true;
                 }
