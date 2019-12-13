@@ -75,9 +75,9 @@ AHRS algo.
 */
 
 // Hall effect variables
-#define HALL_EFFECT_TIME_MS 1000 // Update the hall values 1x/second (for now)
+#define HALL_EFFECT_TIME_MS 500 // Update the hall values 1x/second (for now)
 volatile int hall_revolutions = 0;
-volatile int hall_revolution_history[3] = {0};
+volatile int hall_revolution_history[4] = {0};
 volatile uint32_t hall_revolution_array_index = 0;
 
 APP_TIMER_DEF(hall_velocity_calc);
@@ -111,7 +111,7 @@ void hall_effect_timer_callback(void *p_context) {
     //displayNum((int)distance_rotated, 0, false, 0);
 
     // velocity printout in MPH
-    float velocity_mph = (float)hall_revolutions * arc_length * MS_TO_MPH_CONVERSION_FACTOR;
+    float velocity_mph = (float)hall_revolutions * arc_length * MS_TO_MPH_CONVERSION_FACTOR * ((float)HALL_EFFECT_TIME_MS / 1000.0); // Multiple by .25 because we're going by 1/4sec update
 
     if (display_mode == DISPLAY_MODE_VELOCITY_MPH) {
         displayNum(velocity_mph, 2, false, 0);
@@ -123,7 +123,7 @@ void hall_effect_timer_callback(void *p_context) {
 
     //printf("Bike wheel distance: %f\n", distance_rotated);
     hall_revolution_array_index++;
-    hall_revolution_history[hall_revolution_array_index % 3] = hall_revolutions;
+    hall_revolution_history[hall_revolution_array_index % 4] = hall_revolutions;
     hall_revolutions = 0;
 
 
@@ -336,6 +336,8 @@ int main(void) {
     uint32_t speech_sensor_triggered_time = 0;
     float speech_sensor_triggered_time_diff = 0;
 
+    float braking_threshold = -0.3;
+
     while(true) {
         // Get current RTC tick count from hall effect timer
         current_time = app_timer_cnt_get();
@@ -420,12 +422,13 @@ int main(void) {
             }
 
             __disable_irq();
-            float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 3];
-            float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 3];
-            float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 3];
+            float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 4];
+            float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 4];
+            float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 4];
+            float recent_speed_3 = (float)hall_revolution_history[(hall_revolution_array_index - 3) % 4];
             __enable_irq();
 
-            float speed_diff = current_speed - ((recent_speed_1 * 0.66) + (recent_speed_2 * 0.33));
+            float speed_diff = current_speed - ((recent_speed_1 * 0.1) + (recent_speed_2 * 0.4) + (recent_speed_3 * 0.5));
             printf("Weighted Speed Diff: %f\n", speed_diff);
 
             switch(current_system_state) {
@@ -433,7 +436,7 @@ int main(void) {
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 //displayStr("A--A", 1);
-                if ((speed_diff < -8.0) | (voice_recognition_state == BRAKE)) {
+                if ((speed_diff < braking_threshold) | (voice_recognition_state == BRAKE)) {
                     voice_recognition_state = IDLE;
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = BRAKE;
@@ -459,7 +462,7 @@ int main(void) {
                 if (smoothed_roll < -10.0) {
                     current_system_state = RIGHT;
                     break;
-                } else if (smoothed_roll > 10.0){
+                } else if (smoothed_roll > 10.0) {
                     current_system_state = LEFT;
                     break;
                 } else {
@@ -471,6 +474,12 @@ int main(void) {
                 // Flash Left_green
                 // Again check for breaking
                 //displayStr("A---", 1);
+                if (speed_diff < braking_threshold) {
+                    voice_recognition_state = IDLE;
+                    turn_locked = false;
+                    current_system_state = BRAKE;
+                    break;
+                }
                 if (smoothed_roll < -10.0) {
                     turn_locked = true;
                 }
@@ -500,6 +509,12 @@ int main(void) {
                 // Flash Right_green
                 // Again check for breaking
                 //displayStr("A---", 1);
+                if (speed_diff < braking_threshold) {
+                    voice_recognition_state = IDLE;
+                    turn_locked = false;
+                    current_system_state = BRAKE;
+                    break;
+                }
                 if (smoothed_roll > 10.0) {
                     turn_locked = true;
                 }
