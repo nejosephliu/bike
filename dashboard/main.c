@@ -336,7 +336,7 @@ int main(void) {
     uint32_t speech_sensor_triggered_time = 0;
     float speech_sensor_triggered_time_diff = 0;
 
-    float braking_threshold = -0.3;
+    float braking_threshold = -0.6;
 
     while(true) {
         // Get current RTC tick count from hall effect timer
