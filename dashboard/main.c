@@ -45,7 +45,7 @@
 #define bike_radius .4
 
 // Arc length in centimeters per each 1/2 turn of the bike wheel
-#define arc_length bike_radius*PI // *2/2
+#define arc_length bike_radius*PI*(2.0/9.0) // *2/2
 
 // GPIO defines
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
@@ -92,7 +92,7 @@ volatile float distance_rotated = 0;
 #define DISPLAY_MODE_HUMIDITY 3
 
 uint8_t si7021_is_init = 0;
-uint8_t display_mode = DISPLAY_MODE_VELOCITY_MPH;
+int display_mode = DISPLAY_MODE_VELOCITY_MPH;
 
 
 // Voice Commands Enum
@@ -106,7 +106,7 @@ uint8_t display_mode = DISPLAY_MODE_VELOCITY_MPH;
 void hall_effect_timer_callback(void *p_context) {
     // in meters
     distance_rotated += ((float)hall_revolutions * arc_length);
-    
+
     //printf("Hall Revs: %i\n", hall_revolutions);
     //displayNum((int)distance_rotated, 0, false, 0);
 
@@ -117,7 +117,7 @@ void hall_effect_timer_callback(void *p_context) {
         displayNum(velocity_mph, 2, false, 0);
         displayStr("NNPH", 1);
     } else if (display_mode == DISPLAY_MODE_DISTANCE_METERS) {
-        displayNum(distance_rotated, 2, false, 0);
+        displayNum(distance_rotated, 0, false, 0);
         displayStr("NN", 1);
     }
 
@@ -126,7 +126,7 @@ void hall_effect_timer_callback(void *p_context) {
     hall_revolution_history[hall_revolution_array_index % 3] = hall_revolutions;
     hall_revolutions = 0;
 
-    
+
 }
 
 // General clock callback (not used)
@@ -277,7 +277,7 @@ int main(void) {
     APP_ERROR_CHECK(error_code);
     nrf_delay_ms(50);
 
-    
+
 
     // Start the IMU and run calibration
     start_IMU_i2c_connection(&twi_mngr_instance);
@@ -298,7 +298,7 @@ int main(void) {
     debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the LEDs
-    uint16_t numLEDs = 8;
+    uint16_t numLEDs = 10;
     led_init(numLEDs, LED_PWM); // assume success
     pattern_init(numLEDs);      // assume success
     pattern_start();
@@ -349,9 +349,6 @@ int main(void) {
             read_gyro_pointer(&gx, &gy, &gz);
             read_magnetometer_pointer(&mx, &my, &mz);
             IMU_read_counter++;
-
-
-            
         }
 
         uint8_t speech_input = speech_read();
@@ -427,6 +424,7 @@ int main(void) {
             float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 3];
             float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 3];
             __enable_irq();
+
             float speed_diff = current_speed - ((recent_speed_1 * 0.66) + (recent_speed_2 * 0.33));
             printf("Weighted Speed Diff: %f\n", speed_diff);
 
@@ -435,56 +433,45 @@ int main(void) {
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 //displayStr("A--A", 1);
-                if ((smoothed_roll > 5.0) | (voice_recognition_state == RIGHT)) {
-                    speech_sensor_triggered_time = app_timer_cnt_get();
-                    current_system_state = RIGHT;
-                } else if ((smoothed_roll < -5.0) | (voice_recognition_state == LEFT)) {
-                    speech_sensor_triggered_time = app_timer_cnt_get();
-                    current_system_state = LEFT;
-                } else if (voice_recognition_state == BRAKE) {
+                if ((speed_diff < -8.0) | (voice_recognition_state == BRAKE)) {
+                    voice_recognition_state = IDLE;
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = BRAKE;
+                } else if ((smoothed_roll > 10.0) | (voice_recognition_state == LEFT)) {
+                    speech_sensor_triggered_time = app_timer_cnt_get();
+                    current_system_state = LEFT;
+                } else if ((smoothed_roll < -10.0) | (voice_recognition_state == RIGHT)) {
+                    speech_sensor_triggered_time = app_timer_cnt_get();
+                    current_system_state = RIGHT;
                 }
                 break;
 
             case BRAKE:
-                // Flash red
-                break;
-
-            case LEFT:
-                // Flash Left_green
-                // Again check for breaking
-                //displayStr("A---", 1);
-                if (smoothed_roll < -5.0) {
-                    turn_locked = true;
-                }
-
                 speech_sensor_triggered_time_diff = get_msecs_from_ticks(app_timer_cnt_diff_compute(app_timer_cnt_get(), speech_sensor_triggered_time));
-
-                if ((voice_recognition_state == LEFT) && (turn_locked == false) && speech_sensor_triggered_time_diff < 10000.0) {
+                if (speech_sensor_triggered_time_diff < 3000.0) {
                     break;
-                } else if ((voice_recognition_state == LEFT) && (turn_locked == false) && speech_sensor_triggered_time_diff > 10000.0) {
-                    turn_locked = false;
+                } else if ((speech_sensor_triggered_time_diff > 3000.0) && ((voice_recognition_state == BRAKE) | (speed_diff < -8.0))) {
                     voice_recognition_state = IDLE;
-                    current_system_state = IDLE;
+                    speech_sensor_triggered_time = app_timer_cnt_get();
                     break;
                 }
-                if (smoothed_roll > 5.0) {
-                    turn_locked = false;
-                    voice_recognition_state = IDLE;
+
+                if (smoothed_roll < -10.0) {
                     current_system_state = RIGHT;
-                } else if (smoothed_roll > 0.0) { // Changed hysteresis for BENCH TESTING!!!
-                    turn_locked = false;
-                    voice_recognition_state = IDLE;
+                    break;
+                } else if (smoothed_roll > 10.0){
+                    current_system_state = LEFT;
+                    break;
+                } else {
                     current_system_state = IDLE;
                 }
                 break;
 
             case RIGHT:
-                // Flash Right_green
+                // Flash Left_green
                 // Again check for breaking
                 //displayStr("A---", 1);
-                if (smoothed_roll > 5.0) {
+                if (smoothed_roll < -10.0) {
                     turn_locked = true;
                 }
 
@@ -498,11 +485,40 @@ int main(void) {
                     current_system_state = IDLE;
                     break;
                 }
-                if (smoothed_roll < -5.0) {
+                if (smoothed_roll > 10.0) {
                     turn_locked = false;
                     voice_recognition_state = IDLE;
                     current_system_state = LEFT;
-                } else if (smoothed_roll < 0.0) { // Changed hysteresis for BENCH TESTING!!!
+                } else if (smoothed_roll > -1.0) { // Changed hysteresis for BENCH TESTING!!!
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
+                    current_system_state = IDLE;
+                }
+                break;
+
+            case LEFT:
+                // Flash Right_green
+                // Again check for breaking
+                //displayStr("A---", 1);
+                if (smoothed_roll > 10.0) {
+                    turn_locked = true;
+                }
+
+                speech_sensor_triggered_time_diff = get_msecs_from_ticks(app_timer_cnt_diff_compute(app_timer_cnt_get(), speech_sensor_triggered_time));
+
+                if ((voice_recognition_state == LEFT) && (turn_locked == false) && speech_sensor_triggered_time_diff < 10000.0) {
+                    break;
+                } else if ((voice_recognition_state == LEFT) && (turn_locked == false) && speech_sensor_triggered_time_diff > 10000.0) {
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
+                    current_system_state = IDLE;
+                    break;
+                }
+                if (smoothed_roll < -10.0) {
+                    turn_locked = false;
+                    voice_recognition_state = IDLE;
+                    current_system_state = RIGHT;
+                } else if (smoothed_roll < 1.0) { // Changed hysteresis for BENCH TESTING!!!
                     turn_locked = false;
                     voice_recognition_state = IDLE;
                     current_system_state = IDLE;
