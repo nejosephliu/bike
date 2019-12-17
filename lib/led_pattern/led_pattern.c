@@ -56,7 +56,7 @@ static void brake_callback() { // Flash red lights
   if (iteration % 2 == 0) {
     led_fill(0, numLEDs, 0x003FFFFF); // Red
   } else {
-    led_fill(0, numLEDs, 0x00FFFFFF); // Empty
+    // led_fill(0, numLEDs, 0x00FFFFFF); // Empty
   }
   led_show();
   iteration = (iteration + 1) % 2;

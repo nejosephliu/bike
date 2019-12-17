@@ -42,10 +42,10 @@
 
 // Bike wheel radius (in centimeters)
 // I'm assuming standard road bike tires with 622mm diamteter
-#define bike_radius .4
+#define bike_radius .39
 
 // Arc length in centimeters per each 1/2 turn of the bike wheel
-#define arc_length bike_radius*PI*(2.0/9.0) // *2/2
+#define arc_length bike_radius * PI * (2.0 / 9.0)
 
 // GPIO defines
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
@@ -61,6 +61,9 @@ static uint8_t BUTTONS[3] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2};
 // Hall sensor pin
 #define HALL_PIN NRF_GPIO_PIN_MAP(0, 11)
 
+#define BRAKING_THRESHOLD -0.7
+#define LEFT_THRESHOLD 14.0
+#define RIGHT_THRESHOLD -1 * LEFT_THRESHOLD
 
 // Main FSM state variable
 states current_system_state = IDLE;
@@ -75,10 +78,19 @@ AHRS algo.
 */
 
 // Hall effect variables
-#define HALL_EFFECT_TIME_MS 500 // Update the hall values 1x/second (for now)
+#define HALL_EFFECT_TIME_MS 250 // Update the hall values 2x/second (for now)
+
 volatile int hall_revolutions = 0;
 volatile int hall_revolution_history[4] = {0};
+
 volatile uint32_t hall_revolution_array_index = 0;
+
+volatile float velocity_readings_in_last_callback[100] = {0};
+
+volatile float velocity_reading_history[4] = {0};
+volatile uint32_t velocity_reading_array_index = 0;
+
+volatile int num_readings_in_last_callback = 0;
 
 APP_TIMER_DEF(hall_velocity_calc);
 
@@ -102,31 +114,59 @@ int display_mode = DISPLAY_MODE_VELOCITY_MPH;
 #define VOICE_COMMAND_RIGHT 17
 #define VOICE_COMMAND_STOP 18
 
+float get_msecs_from_ticks(uint32_t tick_diff);
+
+float hall_last_time = -1;
+float hall_new_time = -1;
 
 void hall_effect_timer_callback(void *p_context) {
     // in meters
     distance_rotated += ((float)hall_revolutions * arc_length);
 
+    if (display_mode == DISPLAY_MODE_DISTANCE_METERS) {
+        displayNum(distance_rotated, 0, false, 0);
+        displayStr("NN", 1);
+    }
+
+    float velocity_sum = 0;
+    for (int i = 0; i < num_readings_in_last_callback; i++) {
+        velocity_sum += velocity_readings_in_last_callback[i];
+    }
+
+    float avg_velocity;
+
+    if (num_readings_in_last_callback == 0) {
+        avg_velocity = 0;
+    } else {
+        avg_velocity = velocity_sum / num_readings_in_last_callback;
+    }
+
+    
+
     //printf("Hall Revs: %i\n", hall_revolutions);
     //displayNum((int)distance_rotated, 0, false, 0);
 
     // velocity printout in MPH
-    float velocity_mph = (float)hall_revolutions * arc_length * MS_TO_MPH_CONVERSION_FACTOR * ((float)HALL_EFFECT_TIME_MS / 1000.0); // Multiple by .25 because we're going by 1/4sec update
+    // float velocity_mph = (float)hall_revolutions * arc_length * MS_TO_MPH_CONVERSION_FACTOR * ((float)HALL_EFFECT_TIME_MS / 1000.0); // Multiply by .5 because we're going by 1/2 sec update
 
     if (display_mode == DISPLAY_MODE_VELOCITY_MPH) {
-        displayNum(velocity_mph, 2, false, 0);
+        displayNum(avg_velocity, 2, false, 0);
+        //displayNum(num_readings_in_last_callback, 0, false, 1);
         displayStr("NNPH", 1);
     } else if (display_mode == DISPLAY_MODE_DISTANCE_METERS) {
         displayNum(distance_rotated, 0, false, 0);
         displayStr("NN", 1);
     }
 
+    num_readings_in_last_callback = 0;
+
     //printf("Bike wheel distance: %f\n", distance_rotated);
     hall_revolution_array_index++;
     hall_revolution_history[hall_revolution_array_index % 4] = hall_revolutions;
     hall_revolutions = 0;
 
-
+    velocity_reading_array_index++;
+    velocity_reading_history[velocity_reading_array_index % 4] = avg_velocity;
 }
 
 // General clock callback (not used)
@@ -153,6 +193,31 @@ void init_hall_effect_timer(void) {
 
 void hall_effect_GPIO_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
     hall_revolutions += 1;
+
+    hall_last_time = hall_new_time;
+    hall_new_time = app_timer_cnt_get();
+
+    if (hall_last_time != -1) {
+        uint32_t tick_diff = app_timer_cnt_diff_compute(hall_new_time, hall_last_time);
+        float time_diff_msec = get_msecs_from_ticks(tick_diff);
+
+        printf("time diff msec: %f\n", time_diff_msec);
+
+        float velocity_mph = arc_length / time_diff_msec * 1000 * MS_TO_MPH_CONVERSION_FACTOR;
+        printf("velocity: %f\n\n", velocity_mph);
+
+        if (velocity_mph < 30) {
+            velocity_readings_in_last_callback[num_readings_in_last_callback++] = velocity_mph;
+        }
+
+        // if (display_mode == DISPLAY_MODE_VELOCITY_MPH) {
+        //     displayNum(velocity_mph, 2, false, 0);
+        //     displayStr("NNPH", 1);
+        // } else if (display_mode == DISPLAY_MODE_DISTANCE_METERS) {
+        //     displayNum(distance_rotated, 0, false, 0);
+        //     displayStr("NN", 1);
+        // }
+    }
 }
 
 // Setup hall effect sensor interrupt callback
@@ -298,7 +363,7 @@ int main(void) {
     debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the LEDs
-    uint16_t numLEDs = 10;
+    uint16_t numLEDs = 9;
     led_init(numLEDs, LED_PWM); // assume success
     pattern_init(numLEDs);      // assume success
     pattern_start();
@@ -336,7 +401,7 @@ int main(void) {
     uint32_t speech_sensor_triggered_time = 0;
     float speech_sensor_triggered_time_diff = 0;
 
-    float braking_threshold = -0.6;
+    
 
     while(true) {
         // Get current RTC tick count from hall effect timer
@@ -367,9 +432,11 @@ int main(void) {
             }
             if(speech_input == VOICE_COMMAND_NEXT) {
                 display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
+                printf("Display Mode (Next): %d\n", display_mode);
             }
             if(speech_input == VOICE_COMMAND_PREV) {
-                display_mode = (display_mode - 1) % NUM_DISPLAY_MODES;
+                display_mode = (display_mode + NUM_DISPLAY_MODES - 1) % NUM_DISPLAY_MODES;
+                printf("Display Mode (Prev): %d\n", display_mode);
             }
         }
 
@@ -404,7 +471,7 @@ int main(void) {
 
         if ((IMU_read_counter % 100) == 0) {
             //printf("Smoothed Y Accel: %f\n", smoothed_lin_y_accel);
-            printf("Smoothed roll: %f\n", smoothed_roll);
+            // printf("Smoothed roll: %f\n", smoothed_roll); add back
 
             if (si7021_is_init == 1) {
                 float temp = read_temperature();
@@ -422,28 +489,40 @@ int main(void) {
             }
 
             __disable_irq();
-            float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 4];
-            float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 4];
-            float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 4];
-            float recent_speed_3 = (float)hall_revolution_history[(hall_revolution_array_index - 3) % 4];
+            // float current_speed = (float)hall_revolution_history[hall_revolution_array_index % 4];
+            // float recent_speed_1 = (float)hall_revolution_history[(hall_revolution_array_index - 1) % 4];
+            // float recent_speed_2 = (float)hall_revolution_history[(hall_revolution_array_index - 2) % 4];
+            // float recent_speed_3 = (float)hall_revolution_history[(hall_revolution_array_index - 3) % 4];
+
+            float current_speed = (float)velocity_reading_history[velocity_reading_array_index % 4];
+            float recent_speed_1 = (float)velocity_reading_history[(velocity_reading_array_index - 1) % 4];
+            float recent_speed_2 = (float)velocity_reading_history[(velocity_reading_array_index - 2) % 4];
+            float recent_speed_3 = (float)velocity_reading_history[(velocity_reading_array_index - 3) % 4];
+
             __enable_irq();
 
             float speed_diff = current_speed - ((recent_speed_1 * 0.1) + (recent_speed_2 * 0.4) + (recent_speed_3 * 0.5));
             printf("Weighted Speed Diff: %f\n", speed_diff);
+
+            //displayNum(speed_diff, 2, true, 0);
+
+            
+            //displayNum(smoothed_roll, 2, true, 1);
+
 
             switch(current_system_state) {
             case IDLE:
                 // Show speed and distance to rider
                 //CHECK FOR BRAKING SHOULD COME FIRST!!!!
                 //displayStr("A--A", 1);
-                if ((speed_diff < braking_threshold) | (voice_recognition_state == BRAKE)) {
+                if ((speed_diff < BRAKING_THRESHOLD) | (voice_recognition_state == BRAKE)) {
                     voice_recognition_state = IDLE;
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = BRAKE;
-                } else if ((smoothed_roll > 10.0) | (voice_recognition_state == LEFT)) {
+                } else if ((smoothed_roll > LEFT_THRESHOLD) | (voice_recognition_state == LEFT)) {
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = LEFT;
-                } else if ((smoothed_roll < -10.0) | (voice_recognition_state == RIGHT)) {
+                } else if ((smoothed_roll < RIGHT_THRESHOLD) | (voice_recognition_state == RIGHT)) {
                     speech_sensor_triggered_time = app_timer_cnt_get();
                     current_system_state = RIGHT;
                 }
@@ -459,10 +538,10 @@ int main(void) {
                     break;
                 }
 
-                if (smoothed_roll < -10.0) {
+                if (smoothed_roll < RIGHT_THRESHOLD) {
                     current_system_state = RIGHT;
                     break;
-                } else if (smoothed_roll > 10.0) {
+                } else if (smoothed_roll > LEFT_THRESHOLD) {
                     current_system_state = LEFT;
                     break;
                 } else {
@@ -474,13 +553,13 @@ int main(void) {
                 // Flash Left_green
                 // Again check for breaking
                 //displayStr("A---", 1);
-                if (speed_diff < braking_threshold) {
+                if (speed_diff < BRAKING_THRESHOLD) {
                     voice_recognition_state = IDLE;
                     turn_locked = false;
                     current_system_state = BRAKE;
                     break;
                 }
-                if (smoothed_roll < -10.0) {
+                if (smoothed_roll < RIGHT_THRESHOLD) {
                     turn_locked = true;
                 }
 
@@ -494,11 +573,11 @@ int main(void) {
                     current_system_state = IDLE;
                     break;
                 }
-                if (smoothed_roll > 10.0) {
+                /*if (smoothed_roll > 10.0) {
                     turn_locked = false;
                     voice_recognition_state = IDLE;
                     current_system_state = LEFT;
-                } else if (smoothed_roll > -1.0) { // Changed hysteresis for BENCH TESTING!!!
+                } else */if (smoothed_roll > -1.0) { // Changed hysteresis for BENCH TESTING!!!
                     turn_locked = false;
                     voice_recognition_state = IDLE;
                     current_system_state = IDLE;
@@ -509,13 +588,13 @@ int main(void) {
                 // Flash Right_green
                 // Again check for breaking
                 //displayStr("A---", 1);
-                if (speed_diff < braking_threshold) {
+                if (speed_diff < BRAKING_THRESHOLD) {
                     voice_recognition_state = IDLE;
                     turn_locked = false;
                     current_system_state = BRAKE;
                     break;
                 }
-                if (smoothed_roll > 10.0) {
+                if (smoothed_roll > LEFT_THRESHOLD) {
                     turn_locked = true;
                 }
 
@@ -529,11 +608,11 @@ int main(void) {
                     current_system_state = IDLE;
                     break;
                 }
-                if (smoothed_roll < -10.0) {
+                /*if (smoothed_roll < -10.0) {
                     turn_locked = false;
                     voice_recognition_state = IDLE;
                     current_system_state = RIGHT;
-                } else if (smoothed_roll < 1.0) { // Changed hysteresis for BENCH TESTING!!!
+                } else */if (smoothed_roll < 1.0) { // Changed hysteresis for BENCH TESTING!!!
                     turn_locked = false;
                     voice_recognition_state = IDLE;
                     current_system_state = IDLE;

@@ -70,7 +70,7 @@ float read_temperature() {
   temperature -= 46.85;
 
   // Minus 6 because of bias
-  temperature = (9.0 / 5.0) * temperature + 32.0 - 6;
+  temperature = (9.0 / 5.0) * temperature + 32.0 - 6.0;
 
   return temperature;
 }
