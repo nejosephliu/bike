@@ -50,14 +50,6 @@
 // GPIO defines
 #define LED_PWM NRF_GPIO_PIN_MAP(0, 17)     // GPIO pin to control LED signal
 
-// Buttons to select state instead of the voice detector (for now)
-#define NRF_BUTTON0 NRF_GPIO_PIN_MAP(0, 13) // State = brake
-#define NRF_BUTTON1 NRF_GPIO_PIN_MAP(0, 14) // State = left
-#define NRF_BUTTON2 NRF_GPIO_PIN_MAP(0, 15) // State = right
-
-// Put the buttons into an array
-static uint8_t BUTTONS[3] = {NRF_BUTTON0, NRF_BUTTON1, NRF_BUTTON2};
-
 // Hall sensor pin
 #define HALL_PIN NRF_GPIO_PIN_MAP(0, 11)
 
@@ -243,40 +235,6 @@ void setup_IMU_interrupt(void) {
     nrfx_gpiote_in_event_enable(BUCKLER_IMU_INTERUPT, true);
 }
 
-// Callback function for 3 buttons to check state
-// FOR NOW WE CONSIDER THE BUTTON CALLBACK TO BE A STAND IN
-// FOR THE VOICE SENSOR!!
-// I removed the button for state IDLE; this could be our default state
-// that the system falls back on if need be
-void button_callback(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
-    switch (pin) {
-    case NRF_BUTTON0:
-        voice_recognition_state = BRAKE;
-        break;
-    case NRF_BUTTON1:
-        voice_recognition_state = LEFT;
-        break;
-    case NRF_BUTTON2:
-        voice_recognition_state = RIGHT;
-        break;
-    }
-}
-
-// Function to setup the 3 state buttons as input pins
-void setup_buttons(void) {
-    ret_code_t error_code;
-
-    // Do not use high accuracy per Leland
-    nrfx_gpiote_in_config_t button_config = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(false);
-    button_config.pull = NRF_GPIO_PIN_PULLUP;
-
-    for (int i = 0; i < 3; i++) {
-        error_code = nrfx_gpiote_in_init(BUTTONS[i], &button_config, button_callback);
-        APP_ERROR_CHECK(error_code);
-        nrfx_gpiote_in_event_enable(BUTTONS[i], true);
-    }
-}
-
 // Function for taking sliding average of IMU data arrays
 float sliding_averager_float_array(float *input_array_pointer, int array_size) {
     float output = 0;
@@ -318,9 +276,6 @@ int main(void) {
 
     // Initialize GPIO devices and timers in preparation for run:
 
-    // Init buttons
-    setup_buttons();
-
     // Setup IMU interrupt
     setup_IMU_interrupt();
 
@@ -353,14 +308,8 @@ int main(void) {
     si7021_is_init = 1;
     si7021_reset();
 
-    // The mag values will have to be hardcoded for final implementation
-    // Mag cal is very slow...
-    displayStr("CAL", 1);
-    displayStr("CAA", 0);
-    //calibrate_magnetometer();
-    displayStr("DONE", 1);
+    // calibrate_magnetometer(); // Run to generate magnetometer calibration values
     restore_calibrated_magnetometer_values();
-    debug(); // Disable in GM build. Used as sanity check on IMU I2C reads
 
     // Initialize the LEDs
     uint16_t numLEDs = 9;
@@ -399,9 +348,7 @@ int main(void) {
 
     bool turn_locked = false;
     uint32_t speech_sensor_triggered_time = 0;
-    float speech_sensor_triggered_time_diff = 0;
-
-    
+    float speech_sensor_triggered_time_diff = 0;    
 
     while(true) {
         // Get current RTC tick count from hall effect timer
